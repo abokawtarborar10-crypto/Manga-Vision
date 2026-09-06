@@ -1,0 +1,511 @@
+CRITICAL REGRESSION INVESTIGATION — DO NOT APPLY ANOTHER BLIND SCROLL FIX
+
+We have identified an important historical fact about the reader bug.
+
+BEFORE the Reader Settings system was connected to the Chapter/Reader system:
+
+- Vertical scrolling worked smoothly.
+- Swiping directly over manga images worked.
+- Swiping in the empty gaps between images worked.
+- This worked in BOTH:
+  1. Manga reading mode
+  2. Webtoon reading mode
+
+The scrolling problem appeared IMMEDIATELY AFTER we connected the Reader Settings system with the Chapter/Reader system.
+
+The settings that were connected around the time of the regression include:
+
+- Font size
+- Font family/style
+- Font color
+- Image zoom
+- Image scaling
+- Translation style/mode
+- Translation rendering
+- Chapter-related settings
+- Reader behavior/settings
+- Other reader customization settings
+
+IMPORTANT CURRENT SYMPTOM:
+
+- Swiping in empty space between manga images works.
+- Swiping starting directly on a manga image does NOT scroll.
+- This happens in BOTH Manga mode and Webtoon mode.
+
+Therefore, DO NOT assume that the ScrollView itself is broken.
+
+The strongest hypothesis is that the Reader Settings integration introduced a new touch/gesture/rendering layer that captures or blocks touch events when the gesture starts over an image.
+
+YOUR TASK IS TO FIND THE ACTUAL REGRESSION SOURCE.
+
+==================================================
+PHASE 1 — FIND THE REGRESSION
+==================================================
+
+First inspect the project history, recent changes, git commits/checkpoints, or whatever change history is available.
+
+Find the exact changes made when the following were connected:
+
+Reader Settings
+→ Chapter system
+→ Manga/Webtoon reader
+
+Especially investigate files/components changed immediately before the scrolling regression appeared.
+
+DO NOT start modifying code yet.
+
+First produce an internal diagnosis based on the actual code.
+
+Compare:
+
+BEFORE:
+Reader worked normally.
+
+AFTER:
+Reader Settings were connected and image scrolling stopped.
+
+Find the smallest set of changes that could explain this behavior.
+
+==================================================
+PHASE 2 — TRACE THE TOUCH HIERARCHY
+==================================================
+
+Inspect the complete render hierarchy of the reader.
+
+Determine exactly what receives a touch when the user starts a vertical swipe:
+
+Case A:
+User starts swipe in empty space between images.
+
+Case B:
+User starts swipe directly on a manga image.
+
+These two cases must be compared.
+
+Trace:
+
+Reader
+→ ScrollView / FlatList / VirtualizedList
+→ chapter content
+→ image container
+→ image
+→ translation layer
+→ OCR/text layer
+→ zoom layer
+→ gesture layer
+→ settings-controlled wrappers
+→ overlays
+→ touch handlers
+
+Find which component becomes the touch responder.
+
+Look specifically for anything introduced or modified during Reader Settings integration:
+
+- Pressable
+- TouchableOpacity
+- TouchableWithoutFeedback
+- GestureDetector
+- PanGestureHandler
+- PinchGestureHandler
+- Gesture
+- Animated.View
+- Reanimated gesture handlers
+- Skia Canvas
+- SVG
+- WebView
+- absolute-positioned overlays
+- transparent Views
+- full-screen interaction layers
+- image wrappers
+- zoom/pan components
+- custom responder logic
+- onStartShouldSetResponder
+- onMoveShouldSetResponder
+- onResponderGrant
+- onResponderMove
+- onTouchStart
+- onTouchMove
+- preventDefault
+- stopPropagation
+- pointerEvents
+- simultaneousHandlers
+- waitFor
+- gesture priority
+- native gesture configuration
+
+==================================================
+PHASE 3 — INVESTIGATE THE SETTINGS INTEGRATION
+==================================================
+
+Do NOT treat the Settings screen as merely UI.
+
+Trace the entire chain:
+
+Settings UI
+→ settings state/store
+→ persistence
+→ reader settings selector/hook
+→ chapter reader
+→ image renderer
+→ translation renderer
+→ gesture/image behavior
+
+Determine exactly what changed after settings became connected.
+
+For every reader setting added recently, ask:
+
+"Could this setting cause a wrapper, re-render, gesture handler, overlay, transform, or touch interception?"
+
+Especially investigate:
+
+1. Image zoom setting
+2. Image scale setting
+3. Font size
+4. Font color
+5. Translation style
+6. Translation rendering
+7. Chapter reader settings
+8. Any setting that causes an image wrapper to be created
+9. Any setting that adds an overlay above the image
+10. Any setting that changes image transforms
+
+==================================================
+PHASE 4 — HIGH PRIORITY: IMAGE ZOOM / PAN
+==================================================
+
+Because the failure happens specifically when touching the image, investigate image zoom/pan FIRST.
+
+Determine whether image zoom functionality was introduced or connected when Reader Settings were integrated.
+
+Test the following behavior:
+
+At NORMAL zoom:
+
+Finger starts on image
+↓
+Vertical swipe
+↓
+Expected:
+Parent reader scrolls vertically.
+
+At NORMAL zoom:
+
+Finger starts on image
+↓
+Horizontal movement
+↓
+Should not accidentally capture the parent vertical reader unless intended.
+
+At NORMAL zoom:
+
+Two-finger pinch
+↓
+Expected:
+Image zooms.
+
+At ZOOMED state:
+
+Single-finger movement
+↓
+Expected:
+Image pan can work if that is the intended behavior.
+
+The critical rule is:
+
+A normal single-finger VERTICAL swipe at normal zoom must NOT be permanently captured by the image zoom/pan layer.
+
+If an image gesture handler currently captures every pan gesture, fix the gesture arbitration rather than disabling zoom.
+
+==================================================
+PHASE 5 — HIGH PRIORITY: TRANSLATION/OCR OVERLAY
+==================================================
+
+Investigate whether connecting:
+
+- translation style
+- translated text
+- font size
+- font color
+- OCR regions
+- translated text overlays
+- text positioning
+
+created a layer above the manga image.
+
+A visual-only translation/OCR layer must NOT block scrolling.
+
+If the overlay is not interactive, it should not become the touch responder.
+
+Check whether an overlay covers the entire image even though the visible text only occupies small regions.
+
+For React Native, inspect pointerEvents behavior.
+
+For example, if a translation layer is visual-only, determine whether it should use:
+
+pointerEvents="none"
+
+or an equivalent architecture that allows the underlying reader gesture to receive the touch.
+
+Do NOT blindly add pointerEvents="none" to interactive controls.
+
+Separate:
+
+VISUAL OVERLAY
+from
+INTERACTIVE OVERLAY.
+
+==================================================
+PHASE 6 — CHECK FOR SETTINGS-CAUSED REMOUNTING
+==================================================
+
+Investigate whether reading settings are causing the image component or gesture component to remount/recreate.
+
+Look for patterns such as:
+
+key={...settings...}
+
+conditional wrappers
+
+conditional GestureDetector
+
+conditional image components
+
+conditional zoom components
+
+settings-dependent component trees
+
+settings-dependent animated styles
+
+settings-dependent responder handlers
+
+A setting update must not accidentally create a new gesture layer that owns all image touches.
+
+==================================================
+PHASE 7 — RUNTIME DIAGNOSTIC
+==================================================
+
+Temporarily add development-only diagnostics.
+
+When the user touches the image, log:
+
+- touch target/component
+- responder granted
+- responder rejected
+- gesture started
+- gesture recognized
+- gesture cancelled
+- parent ScrollView receiving movement
+- image gesture receiving movement
+- zoom state
+- current reader mode
+- current settings values relevant to image behavior
+
+Do the same when starting the swipe in an empty gap.
+
+We need to compare the two event paths.
+
+Do NOT leave noisy debug logging enabled in production.
+
+==================================================
+PHASE 8 — USE THE HISTORICAL BASELINE
+==================================================
+
+If git history/checkpoints are available:
+
+Find the last known-good version where:
+
+- Manga scrolling worked
+- Webtoon scrolling worked
+- Image swipe worked
+
+Then compare it against the first broken version.
+
+Prioritize the diff related to:
+
+Reader Settings
+Reader state
+Chapter state
+Image rendering
+Translation rendering
+Gesture handling
+Zoom
+Font rendering
+Overlays
+
+Do NOT rewrite the reader from scratch.
+
+Do NOT replace the existing reader architecture unnecessarily.
+
+Restore the previous working behavior with the smallest safe change.
+
+==================================================
+PHASE 9 — DO NOT BE MISLED BY THE SCROLLING TOGGLE
+==================================================
+
+We previously considered adding a scrollingEnabled setting.
+
+Treat this as a diagnostic control, not the root cause.
+
+If:
+
+scrollingEnabled = true
+
+AND:
+
+- scrolling works in empty gaps
+- scrolling still fails when starting directly over images
+
+then the ScrollView is probably not the root cause.
+
+In that case, STOP changing ScrollView configuration and continue tracing the image touch/gesture hierarchy.
+
+==================================================
+PHASE 10 — REQUIRED FINAL DIAGNOSIS
+==================================================
+
+Before making the final fix, explicitly identify:
+
+1. What changed when Reader Settings were connected.
+2. Which component now intercepts image touches.
+3. Why the interception affects image touches but not empty gaps.
+4. Which setting/integration introduced or activated that behavior.
+5. Why it affects both Manga and Webtoon modes.
+6. The exact code path responsible.
+7. The smallest correct fix.
+
+Do NOT report:
+
+"ScrollView was disabled."
+
+unless you can prove it from the actual runtime/code.
+
+Do NOT report:
+
+"pointerEvents was wrong."
+
+unless you can identify the exact overlay and prove it intercepts the gesture.
+
+Do NOT report:
+
+"zoom caused it."
+
+unless you can show the zoom/pan gesture is capturing the swipe.
+
+Find the actual cause.
+
+==================================================
+PHASE 11 — IMPLEMENT THE FIX
+==================================================
+
+After identifying the root cause:
+
+Implement the smallest safe fix.
+
+Required behavior:
+
+MANGA MODE:
+- Vertical swipe over image → scrolls chapter.
+- Vertical swipe in gaps → scrolls chapter.
+- Image zoom remains functional.
+- Translation remains functional.
+- Font settings remain functional.
+- Font color remains functional.
+- Translation style remains functional.
+
+WEBTOON MODE:
+- Vertical swipe over image → scrolls chapter.
+- Vertical swipe in gaps → scrolls chapter.
+- Image zoom remains functional.
+- Translation remains functional.
+- All reader settings remain functional.
+
+Do NOT solve the issue by:
+
+- removing zoom
+- removing translation
+- removing settings
+- disabling gestures globally
+- disabling touch on the entire reader
+- replacing the reader with a different component
+- hardcoding one mode
+- making scrolling work only in empty spaces
+
+==================================================
+PHASE 12 — REGRESSION TEST
+==================================================
+
+After the fix, test at minimum:
+
+TEST 1:
+Manga mode + swipe starting directly on image.
+
+TEST 2:
+Manga mode + swipe starting in gap.
+
+TEST 3:
+Webtoon mode + swipe starting directly on image.
+
+TEST 4:
+Webtoon mode + swipe starting in gap.
+
+TEST 5:
+Normal zoom + one-finger vertical swipe.
+
+TEST 6:
+Pinch zoom.
+
+TEST 7:
+Zoomed image + intended image pan behavior.
+
+TEST 8:
+Change font size while reader is open.
+
+TEST 9:
+Change font color while reader is open.
+
+TEST 10:
+Change translation style while reader is open.
+
+TEST 11:
+Change image zoom setting.
+
+TEST 12:
+Navigate to another chapter and verify scrolling still works.
+
+TEST 13:
+Close and reopen reader and verify scrolling still works.
+
+TEST 14:
+Toggle scrollingEnabled OFF and ON if that setting exists.
+
+The final state must preserve all existing reader functionality.
+
+==================================================
+IMPORTANT
+==================================================
+
+This is a REGRESSION caused by a recent architectural integration.
+
+Do not treat this as an isolated generic "ScrollView doesn't scroll" problem.
+
+The most important clue is:
+
+BEFORE SETTINGS INTEGRATION:
+Image scrolling worked.
+
+AFTER SETTINGS INTEGRATION:
+Image scrolling stopped.
+
+AND:
+
+Gap swipe works.
+Image swipe fails.
+
+Therefore investigate the changes introduced by Settings integration and the touch/gesture hierarchy around images.
+
+FIRST FIND THE REGRESSION.
+THEN IDENTIFY THE EXACT INTERCEPTOR.
+THEN FIX IT.
+THEN TEST BOTH MANGA AND WEBTOON.
+
+Do not make another blind scrolling patch.
