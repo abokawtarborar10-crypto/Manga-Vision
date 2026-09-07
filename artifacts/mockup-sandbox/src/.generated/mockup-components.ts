@@ -8,5 +8,7 @@ export const modules: ModuleMap = {
   "./components/mockups/settings-surprise/IntentDriven.tsx": () => import("../components/mockups/settings-surprise/IntentDriven.tsx"),
   "./components/mockups/settings-vibes/EnergeticManga.tsx": () => import("../components/mockups/settings-vibes/EnergeticManga.tsx"),
   "./components/mockups/settings-vibes/MinimalFormal.tsx": () => import("../components/mockups/settings-vibes/MinimalFormal.tsx"),
-  "./components/mockups/settings-vibes/WarmEditorial.tsx": () => import("../components/mockups/settings-vibes/WarmEditorial.tsx")
+  "./components/mockups/settings-vibes/WarmEditorial.tsx": () => import("../components/mockups/settings-vibes/WarmEditorial.tsx"),
+  "./components/mockups/templates/JapaneseOmakaseLandingPage-E5oZIr/App.tsx": () => import("../components/mockups/templates/JapaneseOmakaseLandingPage-E5oZIr/App.tsx"),
+  "./components/mockups/templates/NeonHorizonsTravelCarousel-BvbohG/App.tsx": () => import("../components/mockups/templates/NeonHorizonsTravelCarousel-BvbohG/App.tsx")
 };

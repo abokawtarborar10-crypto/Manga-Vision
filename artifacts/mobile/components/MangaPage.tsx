@@ -42,6 +42,11 @@ import { useSettings } from "@/context/SettingsContext";
 const SCREEN_W = Dimensions.get("window").width;
 const DEFAULT_ASPECT = 1.45;
 
+// Controlled regression experiment: keep the existing zoom/pinch implementation
+// below, but temporarily remove it from the active reader surface so a normal
+// single-finger swipe reaches the parent FlatList.
+const IMAGE_ZOOM_PAN_ISOLATION = true;
+
 export type BubblePolygon = [number, number][];
 
 export interface TextRegion {
@@ -456,34 +461,17 @@ function MangaPage({
     }
   }
 
-  return (
-    <PinchGestureHandler
-      enabled={pinchZoom}
-      onGestureEvent={Animated.event(
-        [{ nativeEvent: { scale: pinchScale } }],
-        { useNativeDriver: true },
-      )}
-      onHandlerStateChange={(event) => {
-        if (
-          event.nativeEvent.state === State.END ||
-          event.nativeEvent.state === State.CANCELLED ||
-          event.nativeEvent.state === State.FAILED
-        ) {
-          Animated.spring(pinchScale, {
-            toValue: 1,
-            useNativeDriver: true,
-            bounciness: 0,
-          }).start();
-        }
-      }}
-    >
-      <Animated.View
+  const PageSurface = IMAGE_ZOOM_PAN_ISOLATION ? View : Animated.View;
+  const pageSurface = (
+    <PageSurface
       style={{
         width: SCREEN_W,
         height: displayH,
         backgroundColor: "#000",
         overflow: "hidden",
-        transform: [{ scale: zoomed ? 2 : 1 }, { scale: pinchScale }],
+        ...(IMAGE_ZOOM_PAN_ISOLATION
+          ? {}
+          : { transform: [{ scale: zoomed ? 2 : 1 }, { scale: pinchScale }] }),
       }}
       onTouchStart={handleTouchStart}
       onTouchEnd={handleTouchEnd}
@@ -600,7 +588,34 @@ function MangaPage({
           </View>
         </View>
       )}
-    </Animated.View>
+    </PageSurface>
+  );
+
+  if (IMAGE_ZOOM_PAN_ISOLATION) return pageSurface;
+
+  // Retained for rollback after gesture arbitration is fixed and verified.
+  return (
+    <PinchGestureHandler
+      enabled={pinchZoom}
+      onGestureEvent={Animated.event(
+        [{ nativeEvent: { scale: pinchScale } }],
+        { useNativeDriver: true },
+      )}
+      onHandlerStateChange={(event) => {
+        if (
+          event.nativeEvent.state === State.END ||
+          event.nativeEvent.state === State.CANCELLED ||
+          event.nativeEvent.state === State.FAILED
+        ) {
+          Animated.spring(pinchScale, {
+            toValue: 1,
+            useNativeDriver: true,
+            bounciness: 0,
+          }).start();
+        }
+      }}
+    >
+      {pageSurface}
     </PinchGestureHandler>
   );
 }
