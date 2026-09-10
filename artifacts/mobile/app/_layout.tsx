@@ -18,6 +18,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import GlobalWebViewBridge from "@/components/GlobalWebViewBridge";
 import { DownloadProvider } from "@/context/DownloadContext";
+import { I18nProvider } from "@/context/I18nContext";
 import { LibraryProvider } from "@/context/LibraryContext";
 import { SettingsProvider } from "@/context/SettingsContext";
 import { TokenProvider } from "@/context/TokenContext";
@@ -88,19 +89,21 @@ export default function RootLayout() {
       <ErrorBoundary>
         <QueryClientProvider client={queryClient}>
           <SettingsProvider>
-            <TokenProvider>
-            <LibraryProvider>
-              <DownloadProvider>
-                <GestureHandlerRootView style={{ flex: 1 }}>
-                  <KeyboardProvider>
-                    <GlobalWebViewBridge>
-                      <RootLayoutNav />
-                    </GlobalWebViewBridge>
-                  </KeyboardProvider>
-                </GestureHandlerRootView>
-              </DownloadProvider>
-            </LibraryProvider>
-            </TokenProvider>
+            <I18nProvider>
+              <TokenProvider>
+                <LibraryProvider>
+                  <DownloadProvider>
+                    <GestureHandlerRootView style={{ flex: 1 }}>
+                      <KeyboardProvider>
+                        <GlobalWebViewBridge>
+                          <RootLayoutNav />
+                        </GlobalWebViewBridge>
+                      </KeyboardProvider>
+                    </GestureHandlerRootView>
+                  </DownloadProvider>
+                </LibraryProvider>
+              </TokenProvider>
+            </I18nProvider>
           </SettingsProvider>
         </QueryClientProvider>
       </ErrorBoundary>

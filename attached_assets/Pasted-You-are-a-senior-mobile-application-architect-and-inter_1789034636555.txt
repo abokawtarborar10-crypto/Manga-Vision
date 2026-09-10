@@ -1,0 +1,1073 @@
+You are a senior mobile application architect and internationalization (i18n) engineer.
+
+Your task is to implement a COMPLETE, PRODUCTION-READY internationalization system across the ENTIRE existing application.
+
+IMPORTANT:
+Do NOT assume the framework, architecture, navigation system, state management, storage system, or UI structure.
+First inspect the actual project and understand how it is currently built.
+Do NOT blindly install libraries or rewrite existing architecture.
+Do NOT create a fake/demo translation system.
+Do NOT only translate the Settings screen.
+The final implementation must be a real, centralized, persistent, reactive i18n system connected to every part of the application.
+
+==================================================
+PHASE 1 — FULL PROJECT AUDIT BEFORE CHANGING CODE
+==================================================
+
+Before modifying anything, inspect the complete project structure.
+
+Determine:
+
+1. Which framework is being used:
+   - React Native
+   - Expo
+   - Flutter
+   - React
+   - Next.js
+   - Native Android
+   - Native iOS
+   - or another framework.
+
+2. Determine:
+   - programming language
+   - navigation system
+   - state management
+   - persistent storage
+   - theme system
+   - settings architecture
+   - component architecture
+   - localization libraries already installed
+   - font system
+   - RTL support currently present
+   - API/backend architecture if relevant.
+
+3. Search the entire source code for:
+   - hardcoded UI strings
+   - titles
+   - labels
+   - buttons
+   - placeholders
+   - tooltips
+   - alerts
+   - error messages
+   - empty states
+   - loading messages
+   - modal text
+   - dialogs
+   - confirmation messages
+   - validation messages
+   - navigation labels
+   - tabs
+   - menus
+   - settings labels
+   - reader controls
+   - authentication screens
+   - onboarding screens
+   - profile screens
+   - content screens
+   - search screens
+   - reader screens
+   - translation-related UI
+   - download/cache UI
+   - source UI
+   - any developer-facing text that is actually visible to users.
+
+4. Identify every place where text is rendered.
+
+5. Identify every screen and reusable component.
+
+6. Identify all dynamically generated strings.
+
+7. Identify strings coming from:
+   - backend/API
+   - error objects
+   - validation systems
+   - third-party libraries
+   - navigation
+   - settings
+   - notifications.
+
+8. Inspect existing settings implementation carefully.
+   If a language setting already exists, determine whether it is actually connected or merely visual.
+
+9. Inspect existing theme/layout/direction handling.
+
+10. Inspect whether the application already has RTL support.
+
+DO NOT start implementation until you understand the existing architecture.
+
+At the beginning of your final report, provide a short architecture diagnosis describing what you found and which i18n strategy is most compatible with the existing project.
+
+==================================================
+PHASE 2 — SELECT THE CORRECT i18n ARCHITECTURE
+==================================================
+
+Choose the best production-ready i18n solution compatible with the project's EXISTING framework.
+
+Prefer the project's existing localization infrastructure if one already exists and is usable.
+
+Otherwise, select an appropriate established i18n solution.
+
+The architecture must provide:
+
+- centralized translations
+- language detection
+- persistent language selection
+- runtime language switching
+- interpolation
+- pluralization where appropriate
+- fallback language
+- RTL/LTR handling
+- reactive UI updates
+- scalable translation files
+- easy addition of future languages.
+
+Do NOT create a custom translation mechanism if a proper compatible i18n solution already exists.
+
+==================================================
+PHASE 3 — CENTRALIZED TRANSLATION ARCHITECTURE
+==================================================
+
+Create a clean localization structure appropriate for the project.
+
+For example, conceptually:
+
+locales/
+  en/
+    common
+    settings
+    navigation
+    errors
+    reader
+    authentication
+    ...
+  ar/
+    common
+    settings
+    navigation
+    errors
+    reader
+    authentication
+    ...
+  fr/
+  es/
+  zh/
+  ...
+
+The exact folder structure should follow the project's architecture.
+
+Requirements:
+
+1. English must be the fallback language unless the project already has a clearly established default.
+
+2. Every translation must use stable translation keys.
+
+3. Never use translated text itself as a key.
+
+4. Avoid meaningless keys such as:
+   "text1"
+   "label2"
+   "button3"
+
+5. Use semantic keys such as:
+
+   common.cancel
+   common.confirm
+   common.save
+
+   navigation.home
+   navigation.settings
+   navigation.search
+
+   settings.title
+   settings.language
+   settings.appearance
+
+   reader.nextPage
+   reader.previousPage
+
+   errors.network
+   errors.translationFailed
+
+6. Support interpolation, for example:
+
+   "chapter": "Chapter {{number}}"
+
+7. Support pluralization where the framework/library supports it.
+
+8. Keep translations organized and maintainable.
+
+9. Make adding a new language require minimal work.
+
+==================================================
+PHASE 4 — INITIAL LANGUAGES
+==================================================
+
+Implement at minimum:
+
+- English (en)
+- Arabic (ar)
+- French (fr)
+- Spanish (es)
+- Chinese Simplified (zh-CN)
+
+Architect the system so additional languages can easily be added later, including:
+
+- Portuguese
+- Russian
+- Japanese
+- Hindi
+- German
+- Italian
+- Korean
+- etc.
+
+Use proper locale identifiers rather than informal names.
+
+==================================================
+PHASE 5 — LANGUAGE SELECTION SYSTEM
+==================================================
+
+Add a real language selection system inside:
+
+Settings → Language
+
+The language selector must:
+
+1. Display the current language.
+
+2. Display available languages using their native names:
+
+   العربية
+   English
+   Français
+   Español
+   中文
+
+3. Allow the user to select a language.
+
+4. Apply the new language immediately.
+
+5. NOT require:
+   - reinstalling the application
+   - manually restarting the application
+   - logging out
+   - clearing storage.
+
+6. Update the UI reactively.
+
+7. Persist the selected language.
+
+8. Restore the selected language automatically on the next application launch.
+
+==================================================
+PHASE 6 — DEVICE LANGUAGE DETECTION
+==================================================
+
+On the first launch only:
+
+1. Detect the device/system language using the appropriate API for the framework.
+
+2. If the device language is supported, use it automatically.
+
+3. If the device language is not supported, use the fallback language.
+
+4. Once the user manually selects a language, the user's choice becomes authoritative.
+
+5. Do NOT overwrite the user's manually selected language with the device language on future launches.
+
+Conceptually:
+
+First launch:
+Device language → supported? → use it
+                         ↓
+                       no
+                         ↓
+                    fallback
+
+Future launches:
+Saved language → use saved language
+
+==================================================
+PHASE 7 — PERSISTENCE
+==================================================
+
+Use the application's existing persistent storage architecture when appropriate.
+
+Persist:
+
+selectedLanguage
+
+The value must survive:
+
+- application restart
+- closing/reopening application
+- normal navigation
+- reload where applicable.
+
+Do not store language only in component state.
+
+Do not store language only in memory.
+
+Do not create a second conflicting settings persistence system if the application already has one.
+
+The language system must integrate with the existing settings architecture.
+
+==================================================
+PHASE 8 — GLOBAL LANGUAGE STATE
+==================================================
+
+Create a single authoritative language state.
+
+The architecture should conceptually be:
+
+Language Selector
+       ↓
+Central i18n state
+       ↓
+Persistence
+       ↓
+Translation engine
+       ↓
+Entire application UI
+
+Avoid multiple independent language states.
+
+Avoid duplicated language logic.
+
+Avoid components maintaining their own language values.
+
+Any component that needs translated text must use the centralized i18n system.
+
+==================================================
+PHASE 9 — COMPLETE APPLICATION TRANSLATION
+==================================================
+
+Perform a full source-code audit and replace hardcoded user-facing strings.
+
+Do NOT stop after translating obvious screens.
+
+Translate all visible application text including:
+
+- splash/loading screens
+- onboarding
+- authentication
+- home
+- navigation
+- tabs
+- headers
+- search
+- filters
+- categories
+- manga/manhwa lists
+- manga details
+- chapter lists
+- reader
+- reader controls
+- translation controls
+- download controls
+- source management
+- favorites/bookmarks
+- history
+- settings
+- account/profile
+- notifications
+- dialogs
+- confirmation windows
+- error screens
+- empty states
+- loading states
+- retry buttons
+- permission messages
+- update messages
+- network errors
+- API errors shown to users
+- translation errors
+- OCR errors
+- cache errors
+- download errors
+- authentication errors
+- validation errors.
+
+Every user-facing string must come from the localization system.
+
+==================================================
+PHASE 10 — NO HARDCODED USER-FACING STRINGS
+==================================================
+
+After migration, search the entire project for remaining hardcoded UI strings.
+
+Identify cases such as:
+
+<Text>Settings</Text>
+
+<Button title="Save" />
+
+Alert.alert("Error")
+
+placeholder="Search"
+
+accessibilityLabel="Close"
+
+title="Downloads"
+
+etc.
+
+Replace them with localized keys.
+
+Important:
+
+Do NOT blindly translate:
+
+- source code identifiers
+- API parameters
+- database fields
+- URLs
+- file extensions
+- technical identifiers
+- internal logs
+- developer comments
+- mathematical/code constants.
+
+Only user-visible content must be localized.
+
+However, accessibility labels, screen-reader labels, and user-facing system messages MUST also be localized.
+
+==================================================
+PHASE 11 — DYNAMIC TEXT
+==================================================
+
+Handle dynamic strings correctly.
+
+Do NOT concatenate translated fragments incorrectly.
+
+Bad:
+
+"Chapter " + chapterNumber
+
+Use interpolation instead:
+
+t("reader.chapter", { number: chapterNumber })
+
+Similarly handle:
+
+- usernames
+- counts
+- page numbers
+- download progress
+- percentages
+- error details
+- dates
+- file sizes
+- chapter numbers
+- item counts.
+
+Use proper pluralization where necessary.
+
+==================================================
+PHASE 12 — RTL SUPPORT
+==================================================
+
+Implement COMPLETE RTL support.
+
+Arabic must use RTL.
+
+English, French, Spanish, and Simplified Chinese should use LTR unless the locale requires otherwise.
+
+RTL must affect the ENTIRE UI, not merely text alignment.
+
+When Arabic is selected, correctly handle:
+
+- layout direction
+- navigation
+- headers
+- side menus
+- lists
+- settings
+- cards
+- forms
+- dialogs
+- buttons
+- spacing
+- icons
+- arrows
+- back navigation
+- pagination
+- reader controls
+- bottom navigation
+- drawers
+- sheets
+- modals.
+
+Do not simply apply:
+
+textAlign: "right"
+
+That is NOT sufficient.
+
+The application direction itself must change.
+
+==================================================
+PHASE 13 — RTL ICON AND NAVIGATION SAFETY
+==================================================
+
+Be careful with directional icons.
+
+Not every icon should be mirrored.
+
+Correctly distinguish:
+
+Icons that represent direction:
+- back
+- forward
+- next
+- previous
+- chevrons
+- directional arrows
+
+from icons that should NOT be mirrored:
+- search
+- settings
+- heart
+- bookmark
+- download
+- translation
+- information
+- generic action icons.
+
+Use platform/framework-appropriate RTL behavior.
+
+Verify that back/forward/navigation semantics remain correct in Arabic.
+
+==================================================
+PHASE 14 — REACTIVITY
+==================================================
+
+Changing language must immediately update every currently mounted screen.
+
+Do not require:
+
+- navigation away and back
+- application restart
+- screen reload
+- reinstall
+- logout.
+
+If a component does not update when language changes, find the reason.
+
+Inspect:
+
+- memoization
+- cached translated strings
+- useMemo/useCallback
+- context providers
+- state selectors
+- static constants
+- navigation configuration
+- component remounting.
+
+Fix components that prevent reactive language updates.
+
+==================================================
+PHASE 15 — NAVIGATION LOCALIZATION
+==================================================
+
+Make navigation labels localized.
+
+Check:
+
+- tab labels
+- drawer labels
+- navigation titles
+- screen titles
+- breadcrumbs where applicable.
+
+If the navigation framework caches titles, integrate it correctly with the language state so titles update after changing language.
+
+==================================================
+PHASE 16 — SETTINGS INTEGRATION
+==================================================
+
+Integrate Language into the EXISTING settings architecture.
+
+Do not create a disconnected language settings screen.
+
+The architecture must follow:
+
+Settings UI
+    ↓
+Existing settings state/store
+    ↓
+Persistent storage
+    ↓
+i18n engine
+    ↓
+Application direction
+    ↓
+All UI components
+
+Changing language must not break any existing settings.
+
+Preserve all existing settings and behavior.
+
+==================================================
+PHASE 17 — FONT SUPPORT
+==================================================
+
+Audit the existing font system.
+
+Ensure fonts correctly support:
+
+- Arabic
+- English
+- French
+- Spanish
+- Chinese.
+
+Arabic must render correctly:
+
+- connected letters
+- diacritics
+- punctuation
+- numbers
+- mixed Arabic/Latin text.
+
+Chinese must use an appropriate fallback/system font when necessary.
+
+Do not globally replace existing fonts unless necessary.
+
+If the application uses custom fonts, implement an appropriate locale-aware fallback strategy.
+
+==================================================
+PHASE 18 — TEXT EXPANSION AND UI SAFETY
+==================================================
+
+Translations can be significantly longer or shorter than English.
+
+Audit the UI for:
+
+- fixed-width buttons
+- fixed-width labels
+- text clipping
+- overflow
+- ellipsis
+- single-line assumptions
+- hardcoded container widths
+- absolute positioning
+- text overlapping icons
+- modal overflow
+- navigation title overflow.
+
+Test languages with longer text such as French, Spanish, and Arabic.
+
+Do not solve overflow by simply shrinking the entire application font.
+
+Preserve accessibility and readability.
+
+Use flexible layouts where appropriate.
+
+==================================================
+PHASE 19 — SPECIAL UI AREAS
+==================================================
+
+Pay particular attention to:
+
+- modal dialogs
+- bottom sheets
+- dropdowns
+- popups
+- toast messages
+- alerts
+- loading indicators
+- empty states
+- error screens
+- reader overlays
+- floating buttons
+- settings rows
+- switches
+- sliders
+- navigation bars.
+
+These areas often contain overlooked hardcoded strings.
+
+==================================================
+PHASE 20 — ERROR MESSAGE LOCALIZATION
+==================================================
+
+User-facing errors must be localized.
+
+Create semantic error keys for common categories such as:
+
+- network failure
+- server failure
+- authentication failure
+- download failure
+- image loading failure
+- translation failure
+- OCR failure
+- invalid input
+- permission denied
+- unknown error.
+
+Do not expose raw technical errors directly to users unless appropriate.
+
+Keep useful technical details available for developer logs/debugging.
+
+==================================================
+PHASE 21 — API/BACKEND SAFETY
+==================================================
+
+If the project contains backend/API code:
+
+Do NOT blindly translate backend data.
+
+Distinguish between:
+
+1. UI strings controlled by the application → localize them.
+
+2. User/content data returned by APIs → preserve unless the backend explicitly supports localization.
+
+3. Internal API errors → map them to localized user-facing messages where appropriate.
+
+Do not change API contracts merely to implement i18n unless absolutely necessary.
+
+==================================================
+PHASE 22 — FALLBACK BEHAVIOR
+==================================================
+
+Implement safe fallback behavior.
+
+If a translation key is missing:
+
+- never crash the application
+- use the fallback language
+- optionally expose a development warning/log.
+
+Do not display:
+
+undefined
+null
+[object Object]
+
+to the user.
+
+In development, missing translation keys should be easy to identify.
+
+==================================================
+PHASE 23 — TRANSLATION KEY CONSISTENCY
+==================================================
+
+Create a mechanism or validation process to detect:
+
+- missing keys
+- unused keys
+- duplicate keys
+- invalid locale files
+- malformed translations
+- inconsistent namespaces.
+
+If practical for the framework, add a script/test that validates translation completeness.
+
+The English base locale should define the canonical key set.
+
+==================================================
+PHASE 24 — DO NOT BREAK EXISTING FEATURES
+==================================================
+
+This is extremely important.
+
+Do NOT break or rewrite unrelated functionality.
+
+Preserve existing:
+
+- navigation
+- authentication
+- settings
+- themes
+- reader
+- manga/manhwa loading
+- image loading
+- translation functionality
+- OCR
+- text removal/whiteout
+- downloads
+- caching
+- source functionality
+- API communication
+- state management
+- gestures
+- scrolling
+- zoom behavior if currently enabled
+- animations
+- performance behavior.
+
+The i18n implementation must integrate with the current architecture rather than replacing working systems unnecessarily.
+
+==================================================
+PHASE 25 — PERFORMANCE
+==================================================
+
+The localization system must be efficient.
+
+Avoid:
+
+- recreating translation objects unnecessarily
+- causing the entire application to perform expensive work on every render
+- unnecessary network requests
+- repeatedly loading locale files
+- storing huge duplicated translation states.
+
+Translations should be loaded efficiently according to the project's architecture.
+
+==================================================
+PHASE 26 — TESTING
+==================================================
+
+After implementation, test the COMPLETE language lifecycle.
+
+Test:
+
+1. Fresh application launch.
+
+2. Device language = English.
+
+3. Device language = Arabic.
+
+4. Device language = unsupported language.
+
+5. Select Arabic manually.
+
+6. Verify entire UI changes to Arabic.
+
+7. Verify RTL layout changes.
+
+8. Select English.
+
+9. Verify entire UI returns to LTR.
+
+10. Select French.
+
+11. Verify longer translated labels do not break layout.
+
+12. Select Spanish.
+
+13. Select Chinese.
+
+14. Close the application.
+
+15. Reopen it.
+
+16. Verify the selected language is restored.
+
+17. Navigate through every major screen.
+
+18. Open every important modal/dialog.
+
+19. Trigger representative errors.
+
+20. Test settings.
+
+21. Test reader.
+
+22. Test navigation.
+
+23. Test dark/light themes if available.
+
+24. Test accessibility labels where applicable.
+
+25. Test Android specifically if this is a mobile application.
+
+==================================================
+PHASE 27 — RTL TESTING
+==================================================
+
+Perform a dedicated Arabic RTL test.
+
+Verify:
+
+- screen direction
+- navigation
+- back buttons
+- forward buttons
+- lists
+- cards
+- settings
+- switches
+- forms
+- dialogs
+- bottom navigation
+- menus
+- reader controls
+- spacing
+- icons
+- scrolling
+- gestures.
+
+Do not consider RTL complete simply because Arabic text is aligned to the right.
+
+==================================================
+PHASE 28 — AUTOMATED VALIDATION
+==================================================
+
+Run the project's existing:
+
+- typecheck
+- lint
+- unit tests
+- integration tests
+- build
+- platform checks
+
+where applicable.
+
+Also create/run i18n-specific validation.
+
+At minimum verify:
+
+- all locale files parse correctly
+- required keys exist
+- no broken imports
+- no missing translation crashes
+- no TypeScript/type errors caused by localization
+- application builds successfully.
+
+==================================================
+PHASE 29 — HARD-CODED STRING AUDIT AFTER IMPLEMENTATION
+==================================================
+
+After implementation, perform a SECOND complete source-code search.
+
+Find any remaining user-visible hardcoded strings.
+
+For every result:
+
+1. Determine whether it is actually user-facing.
+
+2. If yes → convert it to i18n.
+
+3. If no → leave it and document why it should not be translated.
+
+The goal is that there are NO accidental untranslated user-facing strings.
+
+==================================================
+PHASE 30 — IMPLEMENTATION QUALITY RULES
+==================================================
+
+Follow these rules strictly:
+
+- Inspect before editing.
+- Reuse existing architecture where possible.
+- Do not blindly rewrite components.
+- Do not create duplicate settings stores.
+- Do not create duplicate language states.
+- Do not hardcode translations inside components.
+- Do not put translations directly inside UI files.
+- Do not fake language switching by only changing a few labels.
+- Do not require application restart.
+- Do not require reinstall.
+- Do not reset unrelated application state when language changes.
+- Do not destroy navigation state unnecessarily.
+- Do not break reader state.
+- Do not break scrolling or gestures.
+- Do not alter backend behavior unnecessarily.
+- Do not hide errors.
+- Do not silence TypeScript warnings simply to make the build pass.
+- Do not use temporary hacks as the final solution.
+
+==================================================
+PHASE 31 — FINAL ARCHITECTURE
+==================================================
+
+The final system should conceptually behave like:
+
+                    ┌────────────────────┐
+                    │   Device Locale    │
+                    └─────────┬──────────┘
+                              ↓
+                    First-launch detection
+                              ↓
+                    ┌────────────────────┐
+                    │ Language Settings  │
+                    └─────────┬──────────┘
+                              ↓
+                    ┌────────────────────┐
+                    │ Central i18n State │
+                    └─────────┬──────────┘
+                              ↓
+                    ┌────────────────────┐
+                    │ Persistent Storage │
+                    └─────────┬──────────┘
+                              ↓
+                    ┌────────────────────┐
+                    │ Translation Engine │
+                    └─────────┬──────────┘
+                              ↓
+             ┌────────────────┴────────────────┐
+             ↓                                 ↓
+       Translation UI                    RTL/LTR Manager
+             ↓                                 ↓
+       Entire Application                Entire Layout
+       
+The language state must have ONE authoritative source.
+
+==================================================
+PHASE 32 — REQUIRED FINAL REPORT
+==================================================
+
+When implementation is complete, do NOT simply say:
+
+"i18n implemented successfully."
+
+Provide a technical implementation report containing:
+
+1. Framework detected.
+
+2. Existing architecture discovered.
+
+3. i18n solution selected and WHY it was selected.
+
+4. Files/folders created.
+
+5. Files/components modified.
+
+6. Languages implemented.
+
+7. Language persistence mechanism.
+
+8. Device-language detection mechanism.
+
+9. RTL/LTR implementation.
+
+10. Font handling.
+
+11. Number of screens/components migrated.
+
+12. Any remaining hardcoded strings and why they are intentionally not localized.
+
+13. Translation completeness validation.
+
+14. Tests executed.
+
+15. Build/typecheck/lint results.
+
+16. Any known limitations.
+
+17. Confirmation that language switching happens without reinstalling or manually restarting the application.
+
+18. Confirmation that the selected language survives application restart.
+
+19. Confirmation that Arabic changes the application's actual layout direction.
+
+20. Confirmation that existing application functionality remains intact.
+
+IMPORTANT FINAL REQUIREMENT:
+
+If you discover that the existing application already has partial i18n, DO NOT create a second competing system.
+
+Instead:
+
+AUDIT → REUSE → COMPLETE → REFACTOR ONLY WHERE NECESSARY → TEST.
+
+If you discover architectural conflicts, fix the root cause rather than adding another layer on top.
+
+The goal is a REAL production-ready internationalization system integrated into the ENTIRE existing application, not a demo or visual mockup.

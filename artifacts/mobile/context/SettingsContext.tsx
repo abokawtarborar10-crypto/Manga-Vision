@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Font from "expo-font";
+import { getLocales } from "expo-localization";
 import React, {
   createContext,
   useCallback,
@@ -8,6 +9,11 @@ import React, {
   useState,
 } from "react";
 import type { GeminiModel } from "@/services/geminiKeyTest";
+import {
+  FALLBACK_LANGUAGE,
+  isAppLanguage,
+  type AppLanguage,
+} from "@/i18n";
 
 // ── Base types (unchanged) ──────────────────────────────────────────────────
 
@@ -193,6 +199,7 @@ const FONT_KEY              = "mangaverse_font_settings";
 const NETWORK_KEY           = "mangaverse_network_settings";
 const TRANSLATION_CFG_KEY   = "mangaverse_translation_settings";
 const IMAGE_PROCESSING_KEY  = "mangaverse_image_processing_settings";
+const APP_LANGUAGE_KEY      = "mangaverse_app_language";
 
 const VALID_GEMINI_MODELS: GeminiModel[] = [
   "gemini-flash-lite-latest",
@@ -316,6 +323,8 @@ async function persist(key: string, value: string): Promise<void> {
 interface SettingsContextType {
   settingsReady: boolean;
   settingsLastUpdated: Record<string, number>;
+  appLanguage: AppLanguage;
+  setAppLanguage: (language: AppLanguage) => void;
   // Reader
   readerSettings: ReaderSettings;
   updateReaderSettings: (settings: Partial<ReaderSettings>) => void;
@@ -363,6 +372,7 @@ export const SettingsContext = createContext<SettingsContextType | null>(null);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const [settingsReady, setSettingsReady] = useState(false);
   const [settingsLastUpdated, setSettingsLastUpdated] = useState<Record<string, number>>({});
+  const [appLanguage, setAppLanguageState] = useState<AppLanguage>(FALLBACK_LANGUAGE);
   const [readerSettings, setReaderSettings] = useState<ReaderSettings>(DEFAULT_READER);
   const [activeSourceId, setActiveSourceIdState] = useState("mangadex");
   const [translationCount, setTranslationCount] = useState(0);
@@ -376,7 +386,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     async function load() {
       try {
-        const [settingsRaw, sourceRaw, countRaw, themeRaw, modelRaw, fontRaw, networkRaw, translRaw, imageRaw] =
+        const [settingsRaw, sourceRaw, countRaw, themeRaw, modelRaw, fontRaw, networkRaw, translRaw, imageRaw, languageRaw] =
           await Promise.all([
             AsyncStorage.getItem(SETTINGS_KEY),
             AsyncStorage.getItem(SOURCE_KEY),
@@ -387,7 +397,20 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
             AsyncStorage.getItem(NETWORK_KEY),
             AsyncStorage.getItem(TRANSLATION_CFG_KEY),
             AsyncStorage.getItem(IMAGE_PROCESSING_KEY),
+            AsyncStorage.getItem(APP_LANGUAGE_KEY),
           ]);
+        const deviceLanguage = getLocales()[0]?.languageCode?.toLowerCase();
+        const detectedLanguage: AppLanguage =
+          deviceLanguage === "ar" || deviceLanguage === "fr" || deviceLanguage === "es"
+            ? deviceLanguage
+            : deviceLanguage === "zh"
+              ? "zh-CN"
+              : "en";
+        const restoredLanguage = isAppLanguage(languageRaw) ? languageRaw : detectedLanguage;
+        setAppLanguageState(restoredLanguage);
+        if (!languageRaw) {
+          await persist(APP_LANGUAGE_KEY, restoredLanguage);
+        }
         if (settingsRaw) setReaderSettings(normalizeReader(JSON.parse(settingsRaw)));
         if (sourceRaw) setActiveSourceIdState(sourceRaw);
         if (countRaw) setTranslationCount(parseInt(countRaw, 10) || 0);
@@ -453,6 +476,12 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
     setThemeModeState(mode);
     void persist(THEME_KEY, mode);
     touch("theme");
+  }, [touch]);
+
+  const setAppLanguage = useCallback((language: AppLanguage) => {
+    setAppLanguageState(language);
+    void persist(APP_LANGUAGE_KEY, language);
+    touch("language");
   }, [touch]);
 
   const setGeminiModel = useCallback((model: GeminiModel) => {
@@ -573,6 +602,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
       value={{
         settingsReady,
         settingsLastUpdated,
+        appLanguage, setAppLanguage,
         readerSettings, updateReaderSettings,
         activeSourceId, setActiveSourceId,
         translationCount, incrementTranslationCount,

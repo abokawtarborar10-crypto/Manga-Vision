@@ -13,6 +13,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/context/SettingsContext";
 import { useTokens } from "@/context/TokenContext";
+import { useTranslation } from "react-i18next";
 
 // ── Menu definition ───────────────────────────────────────────────────────────
 
@@ -83,6 +84,7 @@ const MenuRow = memo(function MenuRow({ item }: { item: MenuItem }) {
 export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
+  const { t } = useTranslation();
   const { themeMode, readerSettings } = useSettings();
   const { tokens } = useTokens();
 
@@ -91,51 +93,58 @@ export default function SettingsScreen() {
 
   const MENU: MenuSection[] = [
     {
-      title: "Reading",
+      title: t("settings.reading"),
       items: [
         {
           id: "reader",
           icon: "book-outline",
-          label: "Reader",
-          desc: "Direction, zoom, brightness, preload",
+          label: t("settings.reader"),
+          desc: t("settings.readerDescription"),
           route: "/settings/reader",
         },
         {
           id: "fonts",
           icon: "text-outline",
-          label: "Fonts & Text",
-          desc: "Font family, size, bubble style",
+          label: t("settings.fonts"),
+          desc: t("settings.fontsDescription"),
           route: "/settings/fonts",
         },
         {
           id: "image-processing",
           icon: "color-wand-outline",
-          label: "Image Processing",
-          desc: "Text removal, mask padding, bubble borders",
+          label: t("settings.imageProcessing"),
+          desc: t("settings.imageProcessingDescription"),
           route: "/settings/image-processing",
         },
       ],
     },
     {
-      title: "Appearance",
+      title: t("settings.appearance"),
       items: [
+        {
+          id: "language",
+          icon: "language-outline",
+          label: t("settings.language"),
+          desc: t("settings.languageDescription"),
+          route: "/settings/language",
+        },
         {
           id: "theme",
           icon: "contrast-outline",
-          label: "Theme",
-          desc: themeMode === "auto" ? "Follows system" : themeMode === "dark" ? "Always dark" : "Always light",
+          label: t("settings.theme"),
+          desc: themeMode === "auto" ? t("settings.followsSystem") : themeMode === "dark" ? t("settings.alwaysDark") : t("settings.alwaysLight"),
           route: "/settings/theme",
         },
       ],
     },
     {
-      title: "AI & Translation",
+      title: t("settings.aiAndTranslation"),
       items: [
         {
           id: "ai-translation",
           icon: "sparkles",
-          label: "AI Translation",
-          desc: "Gemini keys, model, style, language",
+          label: t("settings.aiTranslation"),
+          desc: t("settings.aiTranslationDescription"),
           route: "/settings/ai-translation",
           accent: true,
           badge: () => tokens.length > 0 ? tokens.length : null,
@@ -143,59 +152,59 @@ export default function SettingsScreen() {
       ],
     },
     {
-      title: "Sources",
+      title: t("settings.sources"),
       items: [
         {
           id: "sources",
           icon: "server-outline",
-          label: "Sources",
-          desc: "Enable, priority, cookies, stats",
+          label: t("settings.sources"),
+          desc: t("settings.sourcesDescription"),
           route: "/settings/sources",
         },
       ],
     },
     {
-      title: "Data",
+      title: t("settings.data"),
       items: [
         {
           id: "network",
           icon: "wifi-outline",
-          label: "Network",
-          desc: "Connection, proxy, inpaint server",
+          label: t("settings.network"),
+          desc: t("settings.networkDescription"),
           route: "/settings/network",
         },
         {
           id: "storage",
           icon: "archive-outline",
-          label: "Storage",
-          desc: "Cache, database, cleanup",
+          label: t("settings.storage"),
+          desc: t("settings.storageDescription"),
           route: "/settings/storage",
         },
         {
           id: "backup",
           icon: "cloud-upload-outline",
-          label: "Backup & Restore",
-          desc: "Export and import settings",
+          label: t("settings.backup"),
+          desc: t("settings.backupDescription"),
           route: "/settings/backup",
         },
       ],
     },
     {
-      title: "App",
+      title: t("settings.app"),
       items: [
         {
           id: "about",
           icon: "information-circle-outline",
-          label: "About MangaVerse",
-          desc: "Version, licenses, developer",
+          label: t("settings.about"),
+          desc: t("settings.aboutDescription"),
           route: "/settings/about",
         },
         ...( __DEV__
           ? [{
               id: "debug",
               icon: "bug-outline",
-              label: "Settings Debug",
-              desc: "Live wiring and persistence audit",
+              label: t("settings.debug"),
+              desc: t("settings.debugDescription"),
               route: "/settings/debug",
             }]
           : []),
@@ -210,7 +219,7 @@ export default function SettingsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Settings</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.title")}</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -221,7 +230,7 @@ export default function SettingsScreen() {
         {MENU.map((section) => (
           <View key={section.title} style={styles.section}>
             <Text style={[styles.sectionTitle, { color: colors.mutedForeground }]}>
-              {section.title.toUpperCase()}
+              {section.title.toLocaleUpperCase()}
             </Text>
             <View
               style={[
@@ -249,7 +258,7 @@ export default function SettingsScreen() {
         ))}
 
         <Text style={[styles.footer, { color: colors.mutedForeground }]}>
-          MangaVerse aggregates content from legal public sources. All content is provided in accordance with respective platform Terms of Service.
+          {t("settings.legalNotice")}
         </Text>
       </ScrollView>
     </View>
