@@ -116,7 +116,7 @@ function CVPipelineRenderer({
       ? "Inter"
       : fontSettings.fontFamily === "monospace"
         ? "monospace"
-        : ARABIC_FONT_FAMILY;
+        : fontSettings.customFontFamily || ARABIC_FONT_FAMILY;
   const items = useMemo<RenderedItem[]>(() => {
     // ── Phase 1: Classify and filter regions ─────────────────────────────────
     const renderableIndices: number[] = [];

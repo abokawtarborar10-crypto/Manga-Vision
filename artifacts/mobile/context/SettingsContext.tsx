@@ -1,4 +1,5 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as Font from "expo-font";
 import React, {
   createContext,
   useCallback,
@@ -45,12 +46,14 @@ export interface ReaderSettings {
 
 // ── Font types ──────────────────────────────────────────────────────────────
 
-export type FontFamily = "system" | "inter" | "monospace";
+export type FontFamily = "system" | "inter" | "monospace" | "custom";
 export type FontWeight = "400" | "500" | "600" | "700";
 export type TextQuality = "low" | "medium" | "high";
 
 export interface FontSettings {
   fontFamily: FontFamily;
+  customFontFamily: string;
+  customFontUri: string;
   fontSize: number; // 12–24
   fontWeight: FontWeight;
   lineSpacing: number; // 1.0–2.5
@@ -129,6 +132,8 @@ const DEFAULT_READER: ReaderSettings = {
 
 export const DEFAULT_FONT_SETTINGS: FontSettings = {
   fontFamily: "system",
+  customFontFamily: "",
+  customFontUri: "",
   fontSize: 16,
   fontWeight: "400",
   lineSpacing: 1.4,
@@ -233,7 +238,9 @@ function normalizeFont(raw: unknown): FontSettings {
   const value = isRecord(raw) ? raw : {};
   return {
     ...DEFAULT_FONT_SETTINGS,
-    fontFamily: pick(value.fontFamily, ["system", "inter", "monospace"] as const, DEFAULT_FONT_SETTINGS.fontFamily),
+    fontFamily: pick(value.fontFamily, ["system", "inter", "monospace", "custom"] as const, DEFAULT_FONT_SETTINGS.fontFamily),
+    customFontFamily: typeof value.customFontFamily === "string" ? value.customFontFamily : DEFAULT_FONT_SETTINGS.customFontFamily,
+    customFontUri: typeof value.customFontUri === "string" ? value.customFontUri : DEFAULT_FONT_SETTINGS.customFontUri,
     fontSize: Math.round(clamp(value.fontSize, 12, 24, DEFAULT_FONT_SETTINGS.fontSize)),
     fontWeight: pick(value.fontWeight, ["400", "500", "600", "700"] as const, DEFAULT_FONT_SETTINGS.fontWeight),
     lineSpacing: clamp(value.lineSpacing, 1, 2.5, DEFAULT_FONT_SETTINGS.lineSpacing),
@@ -327,6 +334,8 @@ interface SettingsContextType {
   // Font
   fontSettings: FontSettings;
   updateFontSettings: (settings: Partial<FontSettings>) => void;
+  setCustomFont: (font: { familyName: string; uri: string }) => Promise<void>;
+  clearCustomFont: () => void;
   resetFontSettings: () => void;
   // Network
   networkSettings: NetworkSettings;
@@ -388,7 +397,19 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         if (modelRaw && VALID_GEMINI_MODELS.includes(modelRaw as GeminiModel)) {
           setGeminiModelState(modelRaw as GeminiModel);
         }
-        if (fontRaw) setFontSettings(normalizeFont(JSON.parse(fontRaw)));
+        if (fontRaw) {
+          const normalizedFont = normalizeFont(JSON.parse(fontRaw));
+          setFontSettings(normalizedFont);
+          if (normalizedFont.customFontFamily && normalizedFont.customFontUri) {
+            try {
+              await Font.loadAsync({
+                [normalizedFont.customFontFamily]: normalizedFont.customFontUri,
+              });
+            } catch (error) {
+              console.warn("[settings] Could not restore custom font", error);
+            }
+          }
+        }
         if (networkRaw) setNetworkSettings(normalizeNetwork(JSON.parse(networkRaw)));
         if (translRaw) setTranslationSettings(normalizeTranslation(JSON.parse(translRaw)));
         if (imageRaw) setImageProcessingSettings(normalizeImageProcessing(JSON.parse(imageRaw)));
@@ -452,6 +473,41 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const resetFontSettings = useCallback(() => {
     setFontSettings(DEFAULT_FONT_SETTINGS);
     void persist(FONT_KEY, JSON.stringify(DEFAULT_FONT_SETTINGS));
+    touch("fonts");
+  }, [touch]);
+
+  const setCustomFont = useCallback(async ({
+    familyName,
+    uri,
+  }: {
+    familyName: string;
+    uri: string;
+  }) => {
+    await Font.loadAsync({ [familyName]: uri });
+    setFontSettings((prev) => {
+      const next = normalizeFont({
+        ...prev,
+        fontFamily: "custom",
+        customFontFamily: familyName,
+        customFontUri: uri,
+      });
+      void persist(FONT_KEY, JSON.stringify(next));
+      return next;
+    });
+    touch("fonts");
+  }, [touch]);
+
+  const clearCustomFont = useCallback(() => {
+    setFontSettings((prev) => {
+      const next = normalizeFont({
+        ...prev,
+        fontFamily: "system",
+        customFontFamily: "",
+        customFontUri: "",
+      });
+      void persist(FONT_KEY, JSON.stringify(next));
+      return next;
+    });
     touch("fonts");
   }, [touch]);
 
@@ -522,7 +578,7 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
         translationCount, incrementTranslationCount,
         themeMode, setThemeMode,
         geminiModel, setGeminiModel,
-        fontSettings, updateFontSettings, resetFontSettings,
+        fontSettings, updateFontSettings, resetFontSettings, setCustomFont, clearCustomFont,
         networkSettings, updateNetworkSettings,
         translationSettings, updateTranslationSettings,
         imageProcessingSettings, updateImageProcessingSettings,

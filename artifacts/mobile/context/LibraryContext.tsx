@@ -4,6 +4,7 @@ import React, {
   useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import { LibraryEntry, LibraryStatus, Manga, ReadingProgress } from "@/services/sources/types";
@@ -30,6 +31,10 @@ const LibraryContext = createContext<LibraryContextType | null>(null);
 export function LibraryProvider({ children }: { children: React.ReactNode }) {
   const [entries, setEntries] = useState<LibraryEntry[]>([]);
   const [progress, setProgress] = useState<Record<string, ReadingProgress>>({});
+  // Keep reads synchronous without changing the callback identity on every
+  // progress write. Reader chapter initialization depends on getProgress;
+  // changing that identity while scrolling would re-run its load effect.
+  const progressRef = useRef<Record<string, ReadingProgress>>({});
 
   useEffect(() => {
     async function load() {
@@ -39,7 +44,11 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
           AsyncStorage.getItem(PROGRESS_KEY),
         ]);
         if (libRaw) setEntries(JSON.parse(libRaw));
-        if (progRaw) setProgress(JSON.parse(progRaw));
+        if (progRaw) {
+          const nextProgress = JSON.parse(progRaw);
+          progressRef.current = nextProgress;
+          setProgress(nextProgress);
+        }
       } catch {}
     }
     load();
@@ -52,6 +61,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
 
   const saveProgressMap = useCallback(
     async (next: Record<string, ReadingProgress>) => {
+      progressRef.current = next;
       setProgress(next);
       await AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(next));
     },
@@ -103,6 +113,7 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
     (p: ReadingProgress) => {
       setProgress((prev) => {
         const next = { ...prev, [p.mangaId]: p };
+        progressRef.current = next;
         AsyncStorage.setItem(PROGRESS_KEY, JSON.stringify(next));
         return next;
       });
@@ -136,8 +147,8 @@ export function LibraryProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const getProgress = useCallback(
-    (mangaId: string) => progress[mangaId],
-    [progress]
+    (mangaId: string) => progressRef.current[mangaId],
+    []
   );
 
   const isInLibrary = useCallback(

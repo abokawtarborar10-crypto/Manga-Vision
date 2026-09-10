@@ -344,7 +344,7 @@ function SkiaOverlayCanvas({ regions, displayW, displayH }: Props) {
       ? "Inter"
       : fontSettings.fontFamily === "monospace"
         ? "monospace"
-        : ARABIC_FONT_FAMILY;
+        : fontSettings.customFontFamily || ARABIC_FONT_FAMILY;
   const items = useMemo(() => {
     return regions
       .map((region, idx) => {

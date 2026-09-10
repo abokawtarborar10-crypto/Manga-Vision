@@ -1,0 +1,583 @@
+CRITICAL NEW READER REGRESSION — CHAPTER RELOADS AND RETURNS TO PAGE 1
+
+IMPORTANT:
+The previous scrolling regression has now been isolated successfully.
+
+After temporarily disabling image zoom/pan interaction, vertical scrolling is working normally again.
+
+DO NOT modify the scrolling system.
+DO NOT reintroduce image zoom/pan.
+DO NOT create another ScrollView.
+DO NOT change gesture handling.
+
+We now have a DIFFERENT problem that must be investigated independently.
+
+==================================================
+CURRENT BUG
+==================================================
+
+When reading a chapter:
+
+Page/Image 1
+↓
+User scrolls normally
+↓
+Page/Image 2
+↓
+Page/Image 3
+
+At approximately the second or third image, the chapter suddenly starts loading again.
+
+The reader then returns to:
+
+Page/Image 1
+
+This happens in BOTH:
+
+1. Manga mode
+2. Webtoon mode
+
+The problem is NOT that scrolling stops.
+
+Scrolling itself works.
+
+The problem is that the CHAPTER/READER STATE is being reset or reinitialized while scrolling.
+
+==================================================
+MOST IMPORTANT REQUIREMENT
+==================================================
+
+DO NOT treat this as a ScrollView problem.
+
+The current ScrollView scrolling behavior is working correctly.
+
+We need to find out:
+
+"WHY DOES THE CHAPTER RELOAD WHEN THE USER REACHES THE NEXT IMAGE?"
+
+The expected behavior is:
+
+Image 1
+↓
+Image 2
+↓
+Image 3
+↓
+Image 4
+↓
+Image 5
+↓
+...
+
+WITHOUT:
+
+- refetching the chapter
+- resetting page index to 0
+- remounting the reader
+- recreating the chapter state
+- resetting the image list
+- returning to the first image
+
+==================================================
+PHASE 1 — TRACE CHAPTER INITIALIZATION
+==================================================
+
+Find every place where the chapter is initially loaded.
+
+Search for:
+
+- chapter loading functions
+- fetchChapter
+- loadChapter
+- initializeChapter
+- loadPages
+- fetchPages
+- chapter initialization effects
+- reader initialization
+- page initialization
+- resetReader
+- resetPages
+- setCurrentPage
+- setCurrentPageIndex
+- setPages
+- setImages
+- setChapter
+- chapter state initialization
+
+Determine:
+
+WHAT EXACT FUNCTION RUNS AGAIN when the user reaches image 2 or 3?
+
+Add temporary development-only logging if necessary.
+
+Example diagnostic events:
+
+CHAPTER_INIT
+CHAPTER_FETCH
+PAGES_FETCH
+PAGES_SET
+CURRENT_PAGE_CHANGED
+READER_MOUNT
+READER_UNMOUNT
+READER_RESET
+
+Each event should include:
+
+- chapter ID
+- source ID
+- current page/index
+- number of pages/images
+- reader mode
+- timestamp
+
+==================================================
+PHASE 2 — TRACE COMPONENT REMOUNTING
+==================================================
+
+Investigate whether the Reader component or Chapter component is being unmounted and mounted again.
+
+This is extremely important.
+
+Log:
+
+Reader mounted
+Reader unmounted
+
+ChapterReader mounted
+ChapterReader unmounted
+
+ImageList mounted
+ImageList unmounted
+
+If the reader is unmounted when reaching image 2/3, determine WHY.
+
+Look for changing React keys such as:
+
+key={currentPage}
+
+key={pageIndex}
+
+key={visiblePage}
+
+key={settings}
+
+key={chapter}
+
+or any key derived from scrolling state.
+
+A scrolling position must NOT cause the entire chapter reader to receive a new key.
+
+==================================================
+PHASE 3 — INVESTIGATE useEffect DEPENDENCIES
+==================================================
+
+Inspect every useEffect involved in:
+
+- chapter loading
+- image loading
+- page state
+- current page
+- visible page
+- reader mode
+- settings
+- translation
+- font settings
+- image settings
+- chapter ID
+
+Look for patterns like:
+
+useEffect(() => {
+   loadChapter();
+}, [currentPage]);
+
+or:
+
+useEffect(() => {
+   loadChapter();
+}, [visiblePage]);
+
+or dependencies that change when the user scrolls.
+
+A chapter fetch/init effect should normally depend on stable chapter identity and required source information, NOT the current scrolling position.
+
+Do NOT blindly remove dependencies.
+
+Determine the intended lifecycle first.
+
+==================================================
+PHASE 4 — INVESTIGATE CURRENT PAGE RESET
+==================================================
+
+Find every place that executes something equivalent to:
+
+setCurrentPage(0)
+
+setCurrentPageIndex(0)
+
+setPageIndex(0)
+
+setVisiblePage(0)
+
+setScrollPosition(0)
+
+scrollTo({ y: 0 })
+
+scrollToOffset({ offset: 0 })
+
+resetReader()
+
+resetChapter()
+
+setPages([])
+
+setImages([])
+
+Determine which one runs when the reader reaches image 2 or 3.
+
+The critical question is:
+
+WHAT EVENT causes the state to return to page 0?
+
+==================================================
+PHASE 5 — INVESTIGATE VIEWABILITY / SCROLL CALLBACKS
+==================================================
+
+Inspect:
+
+onScroll
+
+onViewableItemsChanged
+
+viewabilityConfig
+
+onMomentumScrollEnd
+
+onScrollEndDrag
+
+onLayout
+
+onContentSizeChange
+
+onEndReached
+
+onEndReachedThreshold
+
+and any custom scroll/page tracking logic.
+
+Because the bug occurs when moving from image 1 to image 2/3, determine whether a visibility callback incorrectly interprets the next image as:
+
+- a new chapter
+- a new page session
+- a chapter refresh
+- a source refresh
+- a reader reset
+
+Pay special attention to logic that runs when:
+
+visibleIndex changes.
+
+Changing the visible image/page must NOT reload the entire chapter.
+
+==================================================
+PHASE 6 — INVESTIGATE SETTINGS INTEGRATION
+==================================================
+
+Remember:
+
+The original scrolling regression appeared after connecting Reader Settings with the Chapter system.
+
+Settings are still connected.
+
+Now determine whether settings are indirectly causing the chapter to reload when page/image state changes.
+
+Inspect dependencies involving:
+
+- fontSize
+- fontFamily
+- fontColor
+- translationStyle
+- translationMode
+- imageScale
+- readerSettings
+- chapterSettings
+- zoom settings
+- persisted settings
+
+Especially look for:
+
+settings → reader rerender → chapter effect → chapter reload
+
+or:
+
+page change → settings selector → new object reference → effect reruns → chapter reload
+
+Watch for object dependencies such as:
+
+[readerSettings]
+
+where a new object is created frequently.
+
+Also inspect:
+
+{ ...readerSettings }
+
+memoization
+selectors
+context values
+Zustand/Redux selectors
+React Context providers
+
+A settings state update must not recreate/reinitialize the entire chapter.
+
+==================================================
+PHASE 7 — INVESTIGATE OBJECT/REFERENCE INSTABILITY
+==================================================
+
+Look for unstable values used by chapter-loading effects or component keys:
+
+- chapter objects recreated on every render
+- source objects recreated
+- settings objects recreated
+- page arrays recreated
+- image arrays recreated
+- callback functions recreated
+- navigation objects recreated
+
+Example problematic pattern:
+
+useEffect(() => {
+   loadChapter(chapter);
+}, [chapter]);
+
+if "chapter" is recreated as a new object during scrolling.
+
+Check whether the dependency should instead use a stable identifier such as:
+
+chapter.id
+
+provided that this matches the actual architecture.
+
+Do not make this change blindly; verify the data model.
+
+==================================================
+PHASE 8 — INVESTIGATE PAGINATION / VIRTUALIZATION
+==================================================
+
+Determine whether the reader is using:
+
+- FlatList
+- FlashList
+- VirtualizedList
+- SectionList
+- ScrollView
+- custom virtualization
+- lazy image loading
+
+Check whether virtualization is accidentally resetting the chapter data.
+
+Important:
+
+Virtualization may unmount individual images.
+
+That is acceptable.
+
+But it MUST NOT:
+
+- reset the chapter
+- clear the page array
+- reset page index to 0
+- refetch the chapter
+- recreate the entire reader state
+
+Distinguish:
+
+IMAGE COMPONENT UNMOUNT
+
+from:
+
+READER/CHAPTER UNMOUNT.
+
+==================================================
+PHASE 9 — RACE CONDITIONS
+==================================================
+
+Investigate asynchronous operations.
+
+Possible sequence:
+
+User scrolls
+↓
+image 2 becomes visible
+↓
+some state changes
+↓
+old chapter request finishes
+↓
+old request writes state
+↓
+pages reset
+↓
+reader returns to image 1
+
+Check for:
+
+- multiple simultaneous chapter requests
+- stale async requests
+- race conditions
+- promises resolving out of order
+- AbortController usage
+- stale closures
+- asynchronous settings updates
+- translation requests updating chapter state
+
+If an old request can overwrite the current chapter state, fix it safely.
+
+Do NOT simply add arbitrary delays.
+
+==================================================
+PHASE 10 — REQUIRED DIAGNOSTIC
+==================================================
+
+Reproduce this exact sequence:
+
+1. Open chapter.
+2. Confirm image 1.
+3. Scroll to image 2.
+4. Scroll to image 3.
+5. Observe the reload.
+6. Capture logs immediately before the reset.
+
+We need a sequence similar to:
+
+CHAPTER_INIT
+→ image 1
+→ image 2
+→ image 3
+→ ????
+→ CHAPTER_INIT
+→ CURRENT_PAGE = 0
+
+Identify the exact event between image 3 and CHAPTER_INIT.
+
+That event is likely the root cause.
+
+==================================================
+PHASE 11 — FIX
+==================================================
+
+Once the root cause is confirmed:
+
+Fix ONLY the chapter reset/reload lifecycle.
+
+Do NOT change the currently working scrolling behavior.
+
+Required behavior:
+
+MANGA:
+
+Image 1
+↓
+Image 2
+↓
+Image 3
+↓
+Image 4
+↓
+Image 5
+
+No chapter reload.
+
+WEBTOON:
+
+Continuous vertical scrolling through all images.
+
+No chapter reload.
+
+The chapter should be fetched/initialized only when appropriate, such as:
+
+- opening a different chapter
+- explicitly changing chapter
+- refreshing the chapter
+- changing source if the architecture requires it
+
+A normal scroll/page visibility change must NOT initialize the chapter again.
+
+==================================================
+PHASE 12 — PRESERVE SETTINGS
+==================================================
+
+After fixing the reload:
+
+Verify that these remain functional:
+
+- font size
+- font color
+- font style
+- translation style
+- translation
+- text removal
+- chapter navigation
+- Manga mode
+- Webtoon mode
+
+Changing a setting may legitimately rerender/reprocess content if designed that way, but it must NOT cause an accidental chapter reset during normal scrolling.
+
+==================================================
+PHASE 13 — REGRESSION TEST
+==================================================
+
+Test:
+
+1. Manga mode — image 1 → 2 → 3 → 4 → 5.
+2. Webtoon mode — continuously scroll through at least 5 images.
+3. Scroll up and down repeatedly.
+4. Leave reader and reopen same chapter.
+5. Open another chapter.
+6. Change font size.
+7. Change font color.
+8. Change translation style.
+9. Change reader settings.
+10. Scroll immediately after changing settings.
+
+Verify:
+
+NO unexpected chapter reload.
+
+NO unexpected return to image 1.
+
+NO reset of page index.
+
+NO unnecessary chapter refetch.
+
+NO reader remount caused by normal scrolling.
+
+==================================================
+FINAL REPORT
+==================================================
+
+Before declaring success, report:
+
+1. What caused the chapter to reload.
+2. What event triggered it.
+3. Which state was reset.
+4. Which component/effect/function caused the reset.
+5. Why it started happening after Reader Settings integration.
+6. What exact fix was implemented.
+7. What tests were performed.
+
+IMPORTANT:
+
+DO NOT fix this by simply hiding the loading indicator.
+
+DO NOT cache the first image over the problem.
+
+DO NOT fake the chapter state.
+
+DO NOT prevent rendering of later images.
+
+DO NOT modify scrolling to hide the problem.
+
+The actual requirement is:
+
+NORMAL SCROLLING THROUGH IMAGE 1 → 2 → 3 → 4 MUST NEVER REINITIALIZE THE CHAPTER.

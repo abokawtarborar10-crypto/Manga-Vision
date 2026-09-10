@@ -1,7 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as DocumentPicker from "expo-document-picker";
 import { router } from "expo-router";
-import React from "react";
+import React, { useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   Alert,
   Platform,
   Pressable,
@@ -25,6 +27,11 @@ const FONT_FAMILY_OPTS = [
   { value: "system",    label: "System" },
   { value: "inter",     label: "Inter" },
   { value: "monospace", label: "Mono" },
+];
+
+const PREVIEW_DIRECTION_OPTS = [
+  { value: "ltr", label: "LTR" },
+  { value: "rtl", label: "RTL" },
 ];
 
 const FONT_WEIGHT_OPTS = [
@@ -77,15 +84,64 @@ function ColorSwatch({
 export default function FontsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { fontSettings, updateFontSettings, resetFontSettings } = useSettings();
+  const {
+    fontSettings,
+    updateFontSettings,
+    resetFontSettings,
+    setCustomFont,
+    clearCustomFont,
+  } = useSettings();
+  const [previewDirection, setPreviewDirection] = useState<"ltr" | "rtl">("ltr");
+  const [importingFont, setImportingFont] = useState(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = 40 + (Platform.OS === "web" ? 34 : insets.bottom);
 
+  const fontFamilyOptions = useMemo(() => {
+    if (!fontSettings.customFontFamily) return FONT_FAMILY_OPTS;
+    return [
+      ...FONT_FAMILY_OPTS,
+      { value: "custom", label: fontSettings.customFontFamily.slice(0, 12) },
+    ];
+  }, [fontSettings.customFontFamily]);
+
   const resolveFontFamily = () => {
     if (fontSettings.fontFamily === "inter") return "Inter_400Regular";
     if (fontSettings.fontFamily === "monospace") return "monospace" as const;
+    if (fontSettings.fontFamily === "custom") return fontSettings.customFontFamily || undefined;
     return undefined;
+  };
+
+  const handleImportFont = async () => {
+    setImportingFont(true);
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: "*/*",
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+
+      const asset = result.assets[0];
+      const extension = asset.name.split(".").pop()?.toLowerCase();
+      if (!extension || !["ttf", "otf", "woff", "woff2"].includes(extension)) {
+        Alert.alert("Unsupported font", "Choose a .ttf, .otf, .woff, or .woff2 font file.");
+        return;
+      }
+
+      const baseName = asset.name
+        .replace(/\.[^/.]+$/, "")
+        .replace(/[^a-zA-Z0-9_]/g, "_")
+        .replace(/^(\d)/, "_$1");
+      const familyName = `MangaVerse_${baseName || "CustomFont"}`;
+      await setCustomFont({ familyName, uri: asset.uri });
+      Alert.alert("Font imported", `${asset.name} is now available in the reader.`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "The font could not be loaded.";
+      Alert.alert("Font import failed", message);
+    } finally {
+      setImportingFont(false);
+    }
   };
 
   const handleReset = () => {
@@ -148,30 +204,81 @@ export default function FontsScreen() {
                     textShadowColor: fontSettings.outlineColor,
                     textShadowOffset: { width: fontSettings.outlineThickness * 0.5, height: fontSettings.outlineThickness * 0.5 },
                     textShadowRadius: fontSettings.outlineThickness,
+                    writingDirection: previewDirection,
+                    ...(Platform.OS === "web" ? { direction: previewDirection } : {}),
                   }}
                 >
-                  {"それは、ただの始まりに過ぎない。\nThis is only the beginning."}
+                  {previewDirection === "rtl"
+                    ? "هذه مجرد البداية.\nThis is only the beginning."
+                    : "This is only the beginning.\nこれは、ただの始まりに過ぎない。"}
                 </Text>
               </View>
             </View>
+          </View>
+          <View style={styles.previewDirection}>
+            <Text style={[styles.previewDirectionLabel, { color: colors.mutedForeground }]}>
+              Preview direction
+            </Text>
+            <SettingsOptionSelector
+              options={PREVIEW_DIRECTION_OPTS}
+              selected={previewDirection}
+              onChange={(value) => setPreviewDirection(value as "ltr" | "rtl")}
+              layout="row"
+            />
           </View>
         </View>
 
         {/* ── Typography ────────────────────────────────────────────────── */}
         <SettingsSection title="Typography" icon="text-outline" defaultExpanded>
           <SettingsItem
-            icon="fonts-outline"
+            icon="text-outline"
             label="Font Family"
             noChevron
             right={
               <SettingsOptionSelector
-                options={FONT_FAMILY_OPTS}
+                options={fontFamilyOptions}
                 selected={fontSettings.fontFamily}
                 onChange={(v) => updateFontSettings({ fontFamily: v as never })}
                 layout="row"
               />
             }
           />
+          <View style={[styles.importRow, { borderTopColor: colors.border }]}>
+            <View style={styles.importCopy}>
+              <Ionicons name="cloud-upload-outline" size={18} color={colors.primary} />
+              <View style={styles.importText}>
+                <Text style={[styles.colorLabel, { color: colors.foreground }]}>
+                  Custom font
+                </Text>
+                <Text style={[styles.importDescription, { color: colors.mutedForeground }]} numberOfLines={2}>
+                  {fontSettings.customFontFamily
+                    ? `${fontSettings.customFontFamily} imported`
+                    : "Import a TTF, OTF, WOFF, or WOFF2 file"}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.importActions}>
+              {fontSettings.customFontFamily ? (
+                <Pressable onPress={clearCustomFont} style={[styles.smallAction, { borderColor: colors.border }]}>
+                  <Text style={[styles.smallActionText, { color: colors.mutedForeground }]}>Remove</Text>
+                </Pressable>
+              ) : null}
+              <Pressable
+                onPress={handleImportFont}
+                disabled={importingFont}
+                style={[styles.importButton, { backgroundColor: colors.primary, opacity: importingFont ? 0.65 : 1 }]}
+              >
+                {importingFont ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="add" size={15} color="#fff" />
+                    <Text style={styles.importButtonText}>Import</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
           <SettingsItem
             icon="medal-outline"
             label="Font Weight"
@@ -415,6 +522,31 @@ const styles = StyleSheet.create({
     padding: 20,
     backgroundColor: "#1a1a2e",
   },
+  previewDirection: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+    paddingHorizontal: 4,
+  },
+  previewDirectionLabel: { fontSize: 11, fontWeight: "600" as const },
+  importRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  importCopy: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  importText: { flex: 1, gap: 2 },
+  importDescription: { fontSize: 11, lineHeight: 15 },
+  importActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  smallAction: { borderWidth: 1, borderRadius: 7, paddingHorizontal: 8, paddingVertical: 7 },
+  smallActionText: { fontSize: 11, fontWeight: "600" as const },
+  importButton: { flexDirection: "row", alignItems: "center", gap: 4, borderRadius: 7, paddingHorizontal: 10, paddingVertical: 8 },
+  importButtonText: { color: "#fff", fontSize: 12, fontWeight: "600" as const },
   speechBubble: {
     maxWidth: "90%",
     borderWidth: 1,

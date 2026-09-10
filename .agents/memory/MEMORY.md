@@ -5,3 +5,4 @@
 - [Expo build port collision](expo-build-port-collision.md) — static Expo bundle builds need port 8081 free from the mockup sandbox
 - [Translation image source](translation-image-source.md) — pass the reader-resolved URI directly into native/web image-byte acquisition
 - [Expo preview startup](expo-preview-startup.md) — transient Metro startup failures must retry in the preview instead of leaving a one-shot blank 502 page
+- [Reader lifecycle stability](reader-lifecycle.md) — progress persistence must not change callback identity used by chapter-load effects
