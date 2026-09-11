@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLibrary } from "@/context/LibraryContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useTokens } from "@/context/TokenContext";
+import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
@@ -133,6 +134,7 @@ export default function ProfileScreen() {
   const { entries } = useLibrary();
   const { translationCount, readerSettings, themeMode, geminiModel } = useSettings();
   const { tokens, activeTokenId } = useTokens();
+  const { t } = useTranslation();
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = 100 + (Platform.OS === "web" ? 34 : insets.bottom);
@@ -170,40 +172,40 @@ export default function ProfileScreen() {
         </View>
         <Text style={[styles.username, { color: colors.foreground }]}>Manga Reader</Text>
         <Text style={[styles.joinDate, { color: colors.mutedForeground }]}>
-          {entries.length} manga in library
+          {entries.length} {t("profile.stats.library").toLocaleLowerCase()}
         </Text>
       </LinearGradient>
 
       {/* Library Stats */}
       <View style={styles.statsRow}>
-        <StatCard icon="library-outline"        value={entries.length} label="Library" />
-        <StatCard icon="heart-outline"          value={favorites}      label="Favorites" />
-        <StatCard icon="time-outline"           value={reading}        label="Reading" />
-        <StatCard icon="checkmark-done-outline" value={completed}      label="Done" />
+        <StatCard icon="library-outline"        value={entries.length} label={t("profile.stats.library")} />
+        <StatCard icon="heart-outline"          value={favorites}      label={t("profile.stats.favorites")} />
+        <StatCard icon="time-outline"           value={reading}        label={t("profile.stats.reading")} />
+        <StatCard icon="checkmark-done-outline" value={completed}      label={t("profile.stats.done")} />
       </View>
 
       {/* AI Translation Card */}
       <View style={[styles.aiCard, { backgroundColor: `${colors.primary}12`, borderColor: `${colors.primary}28`, borderRadius: colors.radius }]}>
         <View style={styles.aiHeader}>
           <Ionicons name="sparkles" size={18} color={colors.primary} />
-          <Text style={[styles.aiTitle, { color: colors.primary }]}>AI Translation</Text>
+          <Text style={[styles.aiTitle, { color: colors.primary }]}>{t("profile.aiTranslation")}</Text>
           <View style={[styles.activeKeyBadge, { backgroundColor: availableKeys > 0 ? "#22c55e20" : "#ef444420", borderColor: availableKeys > 0 ? "#22c55e40" : "#ef444440" }]}>
             <View style={[styles.activeDot, { backgroundColor: availableKeys > 0 ? "#22c55e" : "#ef4444" }]} />
             <Text style={[styles.activeKeyText, { color: availableKeys > 0 ? "#22c55e" : "#ef4444" }]}>
-              {availableKeys > 0 ? `${availableKeys} key${availableKeys !== 1 ? "s" : ""} active` : "No active key"}
+               {availableKeys > 0 ? `${availableKeys} ${t("profile.activeKey").toLocaleLowerCase()}` : t("profile.activeKey")}
             </Text>
           </View>
         </View>
         <Text style={[styles.aiCount, { color: colors.foreground }]}>
           {translationCount.toLocaleString()}
         </Text>
-        <Text style={[styles.aiCountLabel, { color: colors.mutedForeground }]}>total pages translated</Text>
+         <Text style={[styles.aiCountLabel, { color: colors.mutedForeground }]}>{t("common.pages", { count: translationCount })}</Text>
 
         <View style={[styles.aiDetails, { borderTopColor: `${colors.primary}20` }]}>
-          <InfoRow icon="hardware-chip-outline" label="Model" value={MODEL_LABELS[geminiModel] ?? geminiModel} />
-          <InfoRow icon="globe-outline" label="Language" value={LANG_LABELS[readerSettings.targetLanguage] ?? readerSettings.targetLanguage} />
+           <InfoRow icon="hardware-chip-outline" label={t("profile.model")} value={MODEL_LABELS[geminiModel] ?? geminiModel} />
+           <InfoRow icon="globe-outline" label={t("profile.language")} value={LANG_LABELS[readerSettings.targetLanguage] ?? readerSettings.targetLanguage} />
           {activeToken && (
-            <InfoRow icon="key-outline" label="Active Key" value={activeToken.label || `Key #${tokens.indexOf(activeToken) + 1}`} />
+             <InfoRow icon="key-outline" label={t("profile.activeKey")} value={activeToken.label || `#${tokens.indexOf(activeToken) + 1}`} />
           )}
         </View>
       </View>
@@ -211,7 +213,7 @@ export default function ProfileScreen() {
       {/* Top Genres */}
       {topGenres.length > 0 && (
         <View style={styles.section}>
-          <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Favorite Genres</Text>
+           <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("profile.stats.favorites")}</Text>
           <View style={styles.genreRow}>
             {topGenres.map((g) => (
               <View
@@ -227,26 +229,26 @@ export default function ProfileScreen() {
 
       {/* Quick info */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Reading</Text>
+         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("settings.reading")}</Text>
         <View style={[styles.infoCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <InfoRow
             icon="book-outline"
-            label="Mode"
-            value={readerSettings.readingMode === "vertical" ? "Vertical Scroll" : "Horizontal Pages"}
+             label={t("profile.mode")}
+             value={readerSettings.readingMode === "vertical" ? t("reader.verticalScroll") : t("reader.pageByPage")}
           />
           <InfoRow
             icon="arrow-forward-outline"
-            label="Direction"
-            value={readerSettings.readingDirection === "ltr" ? "Left to Right" : "Right to Left"}
+             label={t("profile.direction")}
+             value={readerSettings.readingDirection === "ltr" ? t("reader.leftToRight") : t("reader.rightToLeft")}
           />
           <InfoRow
             icon="contrast-outline"
-            label="Theme"
+             label={t("profile.theme")}
             value={themeMode.charAt(0).toUpperCase() + themeMode.slice(1)}
           />
           <InfoRow
             icon="apps-outline"
-            label="Version"
+             label={t("profile.version")}
             value="1.0.0"
           />
         </View>
@@ -254,28 +256,28 @@ export default function ProfileScreen() {
 
       {/* App Settings */}
       <View style={styles.section}>
-        <Text style={[styles.sectionTitle, { color: colors.foreground }]}>App</Text>
+         <Text style={[styles.sectionTitle, { color: colors.foreground }]}>{t("settings.app")}</Text>
         <View style={[styles.settingsCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
           <SettingRow
             icon="settings-outline"
-            label="Settings"
+             label={t("navigation.settings")}
             onPress={() => router.push("/settings")}
           />
           <SettingRow
             icon="sparkles"
-            label="AI Translation"
+             label={t("profile.aiTranslation")}
             value={MODEL_LABELS[geminiModel] ?? geminiModel}
             onPress={() => router.push("/settings/ai-translation" as never)}
           />
           <SettingRow
             icon="book-outline"
-            label="Reader"
-            value={readerSettings.readingMode === "vertical" ? "Vertical" : "Horizontal"}
+             label={t("navigation.reader")}
+             value={readerSettings.readingMode === "vertical" ? t("reader.verticalScroll") : t("reader.pageByPage")}
             onPress={() => router.push("/settings/reader" as never)}
           />
           <SettingRow
             icon="information-circle-outline"
-            label="About MangaVerse"
+             label={t("profile.about")}
             onPress={() => router.push("/settings/about" as never)}
           />
         </View>

@@ -19,6 +19,7 @@ import {
   SettingsOptionSelector,
 } from "@/components/settings";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { useTranslation } from "react-i18next";
 
 const READING_MODE_OPTS = [
   { value: "vertical",   label: "Vertical" },
@@ -45,6 +46,24 @@ export default function ReaderSettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { readerSettings, updateReaderSettings } = useSettings();
+  const { t } = useTranslation();
+  const readingModeOptions = [
+    { value: "vertical", label: t("reader.verticalScroll") },
+    { value: "horizontal", label: t("reader.pageByPage") },
+  ];
+  const directionOptions = [
+    { value: "ltr", label: t("reader.leftToRight") },
+    { value: "rtl", label: t("reader.rightToLeft") },
+  ];
+  const transitionOptions = [
+    { value: "scroll", label: t("reader.continuous") },
+    { value: "swipe", label: t("reader.swipe") },
+  ];
+  const fitOptions = [
+    { value: "width", label: t("reader.fitWidth") },
+    { value: "height", label: t("reader.fitHeight") },
+    { value: "screen", label: t("reader.fitScreen") },
+  ];
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = 40 + (Platform.OS === "web" ? 34 : insets.bottom);
@@ -56,7 +75,7 @@ export default function ReaderSettingsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Reader</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("navigation.reader")}</Text>
         <View style={{ width: 38 }} />
       </View>
 
@@ -65,15 +84,15 @@ export default function ReaderSettingsScreen() {
         showsVerticalScrollIndicator={false}
       >
         {/* ── Reading ───────────────────────────────────────────────────── */}
-        <SettingsSection title="Reading" icon="book-outline" defaultExpanded>
+        <SettingsSection title={t("reader.reading")} icon="book-outline" defaultExpanded>
           <SettingsItem
             icon="phone-portrait-outline"
-            label="Reading Mode"
-            description={readerSettings.readingMode === "vertical" ? "Vertical scroll" : "Page-by-page"}
+            label={t("reader.readingMode")}
+            description={readerSettings.readingMode === "vertical" ? t("reader.verticalScroll") : t("reader.pageByPage")}
             noChevron
             right={
               <SettingsOptionSelector
-                options={READING_MODE_OPTS}
+                options={readingModeOptions}
                 selected={readerSettings.readingMode}
                 onChange={(v) => updateReaderSettings({ readingMode: v as never })}
                 layout="row"
@@ -82,11 +101,11 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="swap-vertical-outline"
-            label="Scrolling"
+            label={t("reader.scrolling")}
             description={
               readerSettings.scrollingEnabled
-                ? "Vertical reader scrolling enabled"
-                : "Vertical reader scrolling disabled"
+                ? t("reader.enabled")
+                : t("reader.disabled")
             }
             noChevron
             right={
@@ -100,12 +119,12 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="arrow-forward-outline"
-            label="Reading Direction"
-            description={readerSettings.readingDirection === "ltr" ? "Left to right" : "Right to left (manga)"}
+            label={t("reader.readingDirection")}
+            description={readerSettings.readingDirection === "ltr" ? t("reader.leftToRight") : t("reader.rightToLeft")}
             noChevron
             right={
               <SettingsOptionSelector
-                options={DIRECTION_OPTS}
+                options={directionOptions}
                 selected={readerSettings.readingDirection}
                 onChange={(v) => updateReaderSettings({ readingDirection: v as never })}
                 layout="row"
@@ -114,18 +133,18 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="swap-horizontal-outline"
-            label="Page Transition"
+            label={t("reader.pageTransition")}
             description={
               readerSettings.readingMode === "vertical"
-                ? "Webtoon always uses continuous vertical scrolling"
+                ? t("reader.continuous")
                 : readerSettings.pageTransition === "scroll"
-                  ? "Smooth scrolling"
-                  : "Swipe pages"
+                  ? t("reader.continuous")
+                  : t("reader.swipe")
             }
             noChevron
             right={
               <SettingsOptionSelector
-                options={TRANSITION_OPTS}
+                options={transitionOptions}
                 selected={readerSettings.pageTransition}
                 onChange={(v) => updateReaderSettings({ pageTransition: v as never })}
                 layout="row"
@@ -134,8 +153,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="sparkles-outline"
-            label="Page Animation"
-            description="Animate page transitions"
+            label={t("reader.pageAnimation")}
+            description={t("reader.animateTransitions")}
             last
             noChevron
             right={
@@ -150,11 +169,11 @@ export default function ReaderSettingsScreen() {
         <View style={{ height: 6 }} />
 
         {/* ── Display ───────────────────────────────────────────────────── */}
-        <SettingsSection title="Display" icon="desktop-outline" defaultExpanded>
+        <SettingsSection title={t("reader.display")} icon="desktop-outline" defaultExpanded>
           <SettingsItem
             icon="sunny-outline"
-            label="Keep Screen Awake"
-            description="Prevent screen from sleeping while reading"
+            label={t("reader.keepAwake")}
+            description={t("reader.keepAwakeDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -165,8 +184,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="expand-outline"
-            label="Hide System Bars"
-            description="Full immersive reading mode"
+            label={t("reader.hideSystemBars")}
+            description={t("reader.immersiveDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -177,8 +196,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="layers-outline"
-            label="Show Page Number"
-            description="Display current page overlay"
+            label={t("reader.showPageNumber")}
+            description={t("reader.pageNumberDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -189,8 +208,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="bar-chart-outline"
-            label="Reading Progress Bar"
-            description="Show progress bar at top of reader"
+            label={t("reader.progressBar")}
+            description={t("reader.progressBarDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -203,7 +222,7 @@ export default function ReaderSettingsScreen() {
           {/* Brightness */}
           <View style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
             <SettingsSlider
-              label="Brightness"
+              label={t("reader.brightness")}
               value={readerSettings.brightness === -1 ? 0 : Math.round(readerSettings.brightness * 100)}
               min={0}
               max={100}
@@ -223,11 +242,11 @@ export default function ReaderSettingsScreen() {
         <View style={{ height: 6 }} />
 
         {/* ── Interaction ───────────────────────────────────────────────── */}
-        <SettingsSection title="Interaction" icon="hand-left-outline" defaultExpanded>
+        <SettingsSection title={t("reader.interaction")} icon="hand-left-outline" defaultExpanded>
           <SettingsItem
             icon="scan-outline"
-            label="Double Tap Zoom"
-            description="Double-tap to zoom in/out"
+            label={t("reader.doubleTapZoom")}
+            description={t("reader.doubleTapDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -238,8 +257,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="resize-outline"
-            label="Pinch Zoom"
-            description="Pinch gesture to zoom"
+            label={t("reader.pinchZoom")}
+            description={t("reader.pinchDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -250,13 +269,13 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="contract-outline"
-            label="Fit Mode"
-            description={readerSettings.fitMode === "width" ? "Fit to screen width" : readerSettings.fitMode === "height" ? "Fit to screen height" : "Fit entire screen"}
+            label={t("reader.fitMode")}
+            description={readerSettings.fitMode === "width" ? t("reader.fitWidth") : readerSettings.fitMode === "height" ? t("reader.fitHeight") : t("reader.fitScreen")}
             noChevron
             last
             right={
               <SettingsOptionSelector
-                options={FIT_OPTS}
+                options={fitOptions}
                 selected={readerSettings.fitMode}
                 onChange={(v) => updateReaderSettings({ fitMode: v as never })}
                 layout="row"
@@ -268,11 +287,11 @@ export default function ReaderSettingsScreen() {
         <View style={{ height: 6 }} />
 
         {/* ── Pages ─────────────────────────────────────────────────────── */}
-        <SettingsSection title="Pages" icon="images-outline" defaultExpanded>
+        <SettingsSection title={t("reader.pagesSection")} icon="images-outline" defaultExpanded>
           <SettingsItem
             icon="leaf-outline"
-            label="Data Saver"
-            description="Use a smaller preload window and one download at a time"
+            label={t("reader.dataSaver")}
+            description={t("reader.dataSaverDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -283,8 +302,8 @@ export default function ReaderSettingsScreen() {
           />
           <SettingsItem
             icon="bookmark-outline"
-            label="Remember Last Page"
-            description="Resume from where you left off"
+            label={t("reader.rememberLastPage")}
+            description={t("reader.rememberDescription")}
             noChevron
             right={
               <SettingsToggle
@@ -295,7 +314,7 @@ export default function ReaderSettingsScreen() {
           />
           <View style={{ paddingHorizontal: 14, paddingVertical: 14 }}>
             <SettingsSlider
-              label="Preload Next Pages"
+              label={t("reader.preloadPages")}
               value={readerSettings.preloadPages}
               min={1}
               max={5}

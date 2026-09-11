@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { clearTranslationCache, getTranslationCacheSize } from "@/services/translationQueue";
+import { useTranslation } from "react-i18next";
 
 interface StorageItem {
   key: string;
@@ -44,6 +45,7 @@ function StorageCard({
   onClearDone: () => void;
 }) {
   const colors = useColors();
+  const { t } = useTranslation();
   const [clearing, setClearing] = useState(false);
 
   const ratio = totalBytes > 0 ? item.bytes / totalBytes : 0;
@@ -58,12 +60,15 @@ function StorageCard({
   const handleClear = async () => {
     if (!item.onClear) return;
     Alert.alert(
-      `Clear ${item.label}`,
-      `This will permanently delete all ${item.label.toLowerCase()} data. Continue?`,
+      t("storage.clearTitle", { defaultValue: "Clear {{label}}", label: item.label }),
+      t("storage.clearMessage", {
+        defaultValue: "This will permanently delete all {{label}} data. Continue?",
+        label: item.label.toLowerCase(),
+      }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Clear",
+          text: t("common.remove"),
           style: "destructive",
           onPress: async () => {
             setClearing(true);
@@ -99,7 +104,9 @@ function StorageCard({
               {clearing ? (
                 <ActivityIndicator size="small" color={colors.destructive} />
               ) : (
-                <Text style={[styles.clearBtnText, { color: colors.destructive }]}>Clear</Text>
+                <Text style={[styles.clearBtnText, { color: colors.destructive }]}>
+                  {t("common.remove")}
+                </Text>
               )}
             </Pressable>
           )}
@@ -112,6 +119,7 @@ function StorageCard({
 
 export default function StorageScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [cachePages, setCachePages] = useState(0);
   const [refreshKey, setRefreshKey] = useState(0);
@@ -177,12 +185,15 @@ export default function StorageScreen() {
 
   const handleClearAll = () => {
     Alert.alert(
-      "Clear Everything",
-      "This will delete ALL cached data including translations, cookies, and temporary files. Your library and settings will be preserved.",
+      t("storage.clearAll", { defaultValue: "Clear Everything" }),
+      t("storage.clearAllMessage", {
+        defaultValue:
+          "This will delete ALL cached data including translations, cookies, and temporary files. Your library and settings will be preserved.",
+      }),
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Clear All",
+          text: t("storage.clearAll", { defaultValue: "Clear All" }),
           style: "destructive",
           onPress: async () => {
             setClearingAll(true);
@@ -190,7 +201,10 @@ export default function StorageScreen() {
             setCachePages(0);
             setRefreshKey((k) => k + 1);
             setClearingAll(false);
-            Alert.alert("Done", "All cached data has been cleared.");
+            Alert.alert(
+              t("common.done"),
+              t("storage.cleared", { defaultValue: "All cached data has been cleared." }),
+            );
           },
         },
       ]
@@ -204,7 +218,7 @@ export default function StorageScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Storage</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.storage")}</Text>
         <Pressable onPress={onClearDone} style={styles.refreshBtn}>
           <Ionicons name="refresh-outline" size={20} color={colors.primary} />
         </Pressable>
@@ -217,7 +231,9 @@ export default function StorageScreen() {
         {/* Total summary */}
         <View style={[styles.totalCard, { backgroundColor: `${colors.primary}10`, borderColor: `${colors.primary}25` }]}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>TOTAL USED</Text>
+            <Text style={[styles.totalLabel, { color: colors.mutedForeground }]}>
+              {t("storage.totalUsed", { defaultValue: "TOTAL USED" })}
+            </Text>
             <Text style={[styles.totalValue, { color: colors.foreground }]}>{formatTotal(totalBytes)}</Text>
           </View>
           <Ionicons name="archive-outline" size={32} color={`${colors.primary}60`} />
@@ -247,10 +263,14 @@ export default function StorageScreen() {
             ) : (
               <Ionicons name="trash-outline" size={16} color={colors.destructive} />
             )}
-            <Text style={[styles.clearAllText, { color: colors.destructive }]}>Clear Everything</Text>
+            <Text style={[styles.clearAllText, { color: colors.destructive }]}>
+              {t("storage.clearAll", { defaultValue: "Clear Everything" })}
+            </Text>
           </Pressable>
           <Text style={[styles.clearNote, { color: colors.mutedForeground }]}>
-            Library, settings, and reading history will not be affected.
+            {t("storage.clearNote", {
+              defaultValue: "Library, settings, and reading history will not be affected.",
+            })}
           </Text>
         </View>
       </ScrollView>

@@ -20,6 +20,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { getSource, SourceError } from "@/services/sources";
 import { Manga } from "@/services/sources/types";
+import { useTranslation } from "react-i18next";
 
 const GENRES = [
   "All", "Action", "Adventure", "Comedy", "Drama", "Fantasy",
@@ -28,6 +29,7 @@ const GENRES = [
 
 export default function ExploreScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ genre?: string }>();
   const { activeSourceId } = useSettings();
@@ -74,7 +76,7 @@ export default function ExploreScreen() {
         } else if (err instanceof Error) {
           setSourceError(err.message);
         } else {
-          setSourceError("Failed to load content from this source.");
+          setSourceError(t("errors.network"));
         }
       } finally {
         setLoading(false);
@@ -135,7 +137,7 @@ export default function ExploreScreen() {
           <TextInput
             value={query}
             onChangeText={setQuery}
-            placeholder="Search manga, manhwa, webtoon..."
+            placeholder={t("explore.searchPlaceholder")}
             placeholderTextColor={colors.mutedForeground}
             style={[styles.searchInput, { color: colors.foreground }]}
             returnKeyType="search"
@@ -220,7 +222,7 @@ export default function ExploreScreen() {
             <View style={styles.center}>
               <Ionicons name="search-outline" size={48} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                {query ? "No results found" : "Discover manga"}
+                {query ? t("explore.noResults") : t("explore.title")}
               </Text>
             </View>
           )

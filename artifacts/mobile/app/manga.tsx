@@ -25,6 +25,7 @@ import { SourceErrorView } from "@/components/SourceErrorView";
 import SourceStatusBanner from "@/components/SourceStatusBanner";
 import { getSource, SourceError } from "@/services/sources";
 import { Chapter, LibraryStatus, Manga } from "@/services/sources/types";
+import { useTranslation } from "react-i18next";
 
 const STATUS_ICONS: Record<LibraryStatus, string> = {
   reading: "book",
@@ -35,6 +36,7 @@ const STATUS_ICONS: Record<LibraryStatus, string> = {
 
 export default function MangaScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ mangaId: string; sourceId: string }>();
   const { addToLibrary, removeFromLibrary, isInLibrary, getEntry, getProgress } = useLibrary();
@@ -81,7 +83,7 @@ export default function MangaScreen() {
         console.error("[manga] load failed:", err);
         const msg = err instanceof SourceError
           ? err.message
-          : err instanceof Error ? err.message : "Failed to load manga.";
+           : err instanceof Error ? err.message : t("errors.network");
         setLoadError(msg);
       })
       .finally(() => {
@@ -100,15 +102,18 @@ export default function MangaScreen() {
     if (!manga) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     addToLibrary(manga, status);
-    Alert.alert("Added to Library", `"${manga.title}" added to ${status}`);
+     Alert.alert(
+       t("library.title"),
+       `"${manga.title}" ${t("common.done").toLocaleLowerCase()}`
+     );
   };
 
   const handleRemove = () => {
     if (!manga || !mangaId) return;
-    Alert.alert("Remove from Library", `Remove "${manga.title}"?`, [
-      { text: "Cancel", style: "cancel" },
+     Alert.alert(t("library.removeTitle"), t("library.removeMessage", { title: manga.title }), [
+       { text: t("common.cancel"), style: "cancel" },
       {
-        text: "Remove",
+         text: t("common.remove"),
         style: "destructive",
         onPress: () => {
           removeFromLibrary(mangaId);
@@ -125,8 +130,8 @@ export default function MangaScreen() {
       const userKey = getActiveKey();
       if (!userKey) {
         Alert.alert(
-          "Gemini API Key Required",
-          "Open Settings → Gemini API Keys and add your key to enable translations."
+           t("errors.translation"),
+           t("settings.aiTranslationDescription")
         );
         return;
       }
@@ -149,9 +154,9 @@ export default function MangaScreen() {
       const isRateLimit = errMsg === "RATE_LIMITED" || errMsg.includes("429");
       if (isRateLimit) {
         if (activeTokenId) markRateLimited(activeTokenId, 70_000);
-        Alert.alert("Rate Limited", "This API key hit its limit. Add another key in Settings.");
+         Alert.alert(t("errors.rateLimited"), t("errors.rateLimitedDescription"));
       } else {
-        Alert.alert("Translation Error", errMsg);
+        Alert.alert(t("errors.translation"), errMsg);
       }
     } finally {
       setTranslating(false);
@@ -296,7 +301,7 @@ export default function MangaScreen() {
             >
               <Ionicons name="play" size={18} color="#fff" />
               <Text style={styles.readBtnText}>
-                {progress ? "Continue Reading" : "Start Reading"}
+                 {progress ? t("home.continueReading") : t("reader.continue", { defaultValue: "Start Reading" })}
               </Text>
             </Pressable>
           )}
@@ -359,7 +364,9 @@ export default function MangaScreen() {
         {manga.description && (
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
-              <Text style={[styles.sectionTitle, { color: colors.foreground }]}>Synopsis</Text>
+               <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
+                 {t("manga.synopsis", { defaultValue: "Synopsis" })}
+               </Text>
               <Pressable
                 onPress={translatedDesc ? () => setTranslatedDesc(null) : handleTranslate}
                 disabled={translating}
@@ -374,7 +381,9 @@ export default function MangaScreen() {
                   <Ionicons name="sparkles" size={14} color={colors.primary} />
                 )}
                 <Text style={[styles.translateText, { color: colors.primary }]}>
-                  {translatedDesc ? "Show Original" : "AI Translate"}
+                   {translatedDesc
+                     ? t("manga.showOriginal", { defaultValue: "Show Original" })
+                     : t("reader.translate", { defaultValue: "AI Translate" })}
                 </Text>
               </Pressable>
             </View>
@@ -385,7 +394,10 @@ export default function MangaScreen() {
               <View style={[styles.translatedBadge, { backgroundColor: `${colors.primary}15` }]}>
                 <Ionicons name="sparkles" size={12} color={colors.primary} />
                 <Text style={[styles.translatedBadgeText, { color: colors.primary }]}>
-                  AI Translated to {readerSettings.targetLanguage.toUpperCase()}
+                   {t("manga.aiTranslatedTo", {
+                     defaultValue: "AI Translated to {{language}}",
+                     language: readerSettings.targetLanguage.toUpperCase(),
+                   })}
                 </Text>
               </View>
             )}
@@ -396,7 +408,7 @@ export default function MangaScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.foreground }]}>
-              Chapters ({chapters.length})
+               {t("manga.chapters", { defaultValue: "Chapters ({{count}})", count: chapters.length })}
             </Text>
           </View>
           <View style={[styles.chapterList, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: colors.radius }]}>
@@ -414,7 +426,10 @@ export default function MangaScreen() {
                 style={[styles.showMore, { borderTopColor: colors.border }]}
               >
                 <Text style={[styles.showMoreText, { color: colors.primary }]}>
-                  Show {chapters.length - 20} more chapters
+                   {t("manga.showMoreChapters", {
+                     defaultValue: "Show {{count}} more chapters",
+                     count: chapters.length - 20,
+                   })}
                 </Text>
                 <Ionicons name="chevron-down" size={16} color={colors.primary} />
               </Pressable>

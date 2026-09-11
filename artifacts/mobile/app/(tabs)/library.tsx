@@ -18,16 +18,17 @@ import { useLibrary } from "@/context/LibraryContext";
 import { useColors } from "@/hooks/useColors";
 import { DownloadRecord } from "@/services/downloadManager";
 import { LibraryStatus } from "@/services/sources/types";
+import { useTranslation } from "react-i18next";
 
 type TabKey = LibraryStatus | "all" | "downloaded";
 
-const TABS: { label: string; key: TabKey }[] = [
-  { label: "All", key: "all" },
-  { label: "Reading", key: "reading" },
-  { label: "Favorites", key: "favorites" },
-  { label: "Completed", key: "completed" },
-  { label: "Planned", key: "planned" },
-  { label: "Downloaded", key: "downloaded" },
+const TAB_KEYS: TabKey[] = [
+  "all",
+  "reading",
+  "favorites",
+  "completed",
+  "planned",
+  "downloaded",
 ];
 
 function groupByManga(records: DownloadRecord[]): { mangaId: string; mangaTitle: string; coverUrl: string; chapters: DownloadRecord[] }[] {
@@ -49,7 +50,23 @@ export default function LibraryScreen() {
   const insets = useSafeAreaInsets();
   const { entries } = useLibrary();
   const { downloads, deleteChapter } = useDownloads();
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<TabKey>("all");
+  const tabs = TAB_KEYS.map((key) => ({
+    key,
+    label:
+      key === "all"
+        ? t("common.all")
+        : key === "reading"
+          ? t("profile.stats.reading")
+          : key === "favorites"
+            ? t("profile.stats.favorites")
+            : key === "completed"
+              ? t("profile.stats.done")
+              : key === "planned"
+                ? t("library.title", { defaultValue: "Planned" })
+                : t("library.title", { defaultValue: "Downloaded" }),
+  }));
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
   const bottomPadding = 100 + (Platform.OS === "web" ? 34 : insets.bottom);
@@ -66,12 +83,12 @@ export default function LibraryScreen() {
 
   const handleDeleteChapter = (r: DownloadRecord) => {
     Alert.alert(
-      "Remove Download",
-      `Delete the offline copy of Chapter ${r.chapterNum} of "${r.mangaTitle}"?`,
+      t("library.removeTitle"),
+      `${t("reader.chapter", { number: r.chapterNum })} — ${r.mangaTitle}`,
       [
-        { text: "Cancel", style: "cancel" },
+        { text: t("common.cancel"), style: "cancel" },
         {
-          text: "Delete",
+          text: t("common.remove"),
           style: "destructive",
           onPress: () => deleteChapter(r.sourceId, r.mangaId, r.chapterId),
         },
@@ -82,21 +99,21 @@ export default function LibraryScreen() {
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 16 }]}>
-        <Text style={[styles.title, { color: colors.foreground }]}>My Library</Text>
+         <Text style={[styles.title, { color: colors.foreground }]}>{t("library.title")}</Text>
         <Text style={[styles.subtitle, { color: colors.mutedForeground }]}>
-          {entries.length} manga saved
-          {downloads.length > 0 ? ` · ${downloads.length} chapters offline` : ""}
+           {entries.length} manga saved
+           {downloads.length > 0 ? ` · ${downloads.length} chapters offline` : ""}
         </Text>
       </View>
 
       {/* Tabs */}
       <FlatList
         horizontal
-        data={TABS}
+         data={tabs}
         keyExtractor={(item) => item.key}
         showsHorizontalScrollIndicator={false}
         contentContainerStyle={styles.tabRow}
-        scrollEnabled={!!TABS.length}
+         scrollEnabled={!!tabs.length}
         renderItem={({ item }) => {
           const active = activeTab === item.key;
           const count =
@@ -149,20 +166,20 @@ export default function LibraryScreen() {
               <View style={styles.empty}>
                 <Ionicons name="phone-portrait-outline" size={52} color={colors.mutedForeground} />
                 <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  Downloads on mobile only
+                   {t("library.emptyDescription")}
                 </Text>
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                  Open MangaVerse on your phone or tablet to save chapters for offline reading.
+                   {t("library.emptyDescription")}
                 </Text>
               </View>
             ) : (
               <View style={styles.empty}>
                 <Ionicons name="cloud-download-outline" size={56} color={colors.mutedForeground} />
                 <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                  No offline chapters
+                   {t("library.empty")}
                 </Text>
                 <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                  Open a chapter in the reader and tap the download button to save it for offline reading.
+                   {t("library.emptyDescription")}
                 </Text>
               </View>
             )
@@ -241,16 +258,16 @@ export default function LibraryScreen() {
             <View style={styles.empty}>
               <Ionicons name="bookmarks-outline" size={56} color={colors.mutedForeground} />
               <Text style={[styles.emptyTitle, { color: colors.foreground }]}>
-                {activeTab === "all" ? "Your library is empty" : `No ${activeTab} manga`}
+                 {t("library.empty")}
               </Text>
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                Explore and add manga to your library
+                 {t("library.emptyDescription")}
               </Text>
               <Pressable
                 onPress={() => router.push("/(tabs)/explore")}
                 style={[styles.exploreBtn, { backgroundColor: colors.primary, borderRadius: colors.radius }]}
               >
-                <Text style={styles.exploreBtnText}>Explore Manga</Text>
+                 <Text style={styles.exploreBtnText}>{t("navigation.explore")}</Text>
               </Pressable>
             </View>
           }

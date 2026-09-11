@@ -14,6 +14,7 @@ import { sourceHealth, HealthRecord, SourceHealthStatus } from "@/services/sourc
 import { ALL_SOURCES } from "@/services/sources";
 import { MangaSource } from "@/services/sources/types";
 import { useSettings } from "@/context/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 const STATUS_COLORS: Record<SourceHealthStatus, string> = {
   healthy:    "#22c55e",
@@ -42,6 +43,7 @@ function HealthDot({ status }: { status: SourceHealthStatus }) {
 
 export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) => void }) {
   const colors = useColors();
+  const { t } = useTranslation();
   const { activeSourceId, setActiveSourceId } = useSettings();
   const [showModal, setShowModal] = useState(false);
   const [healthMap, setHealthMap] = useState<Record<string, HealthRecord>>({});
@@ -154,7 +156,7 @@ export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) =
           ]}
         >
           <Ionicons name="add" size={14} color={colors.mutedForeground} />
-          <Text style={[styles.label, { color: colors.mutedForeground }]}>More</Text>
+          <Text style={[styles.label, { color: colors.mutedForeground }]}>{t("common.more")}</Text>
         </Pressable>
       </ScrollView>
 
@@ -171,10 +173,12 @@ export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) =
             onPress={() => {}}
           >
             <View style={[styles.handle, { backgroundColor: colors.border }]} />
-            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>Manga Sources</Text>
+            <Text style={[styles.sheetTitle, { color: colors.foreground }]}>
+              {t("settings.sources")}
+            </Text>
 
             <Text style={[styles.sheetSection, { color: colors.mutedForeground }]}>
-              ACTIVE SOURCES
+                  {t("source.active", { defaultValue: "ACTIVE SOURCES" })}
             </Text>
             {enabledSources.map((source) => {
               const isActive = source.id === activeSourceId;
@@ -246,7 +250,7 @@ export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) =
                 <Text
                   style={[styles.sheetSection, { color: colors.mutedForeground, marginTop: 16 }]}
                 >
-                  COMING SOON
+                  {t("common.soon")}
                 </Text>
                 {disabledSources.map((source) => (
                   <View
@@ -282,7 +286,7 @@ export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) =
                         },
                       ]}
                     >
-                      <Text style={[styles.soonText, { color: colors.primary }]}>Soon</Text>
+                      <Text style={[styles.soonText, { color: colors.primary }]}>{t("common.soon")}</Text>
                     </View>
                   </View>
                 ))}
@@ -293,7 +297,7 @@ export function SourceSwitcher({ onCfError }: { onCfError?: (sourceId: string) =
               onPress={() => setShowModal(false)}
               style={[styles.closeBtn, { backgroundColor: colors.primary, borderRadius: 12 }]}
             >
-              <Text style={styles.closeBtnText}>Done</Text>
+              <Text style={styles.closeBtnText}>{t("common.done")}</Text>
             </Pressable>
           </Pressable>
         </Pressable>

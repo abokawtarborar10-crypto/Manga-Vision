@@ -23,9 +23,11 @@ import {
   SettingsToggle,
 } from "@/components/settings";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { useTranslation } from "react-i18next";
 
 export default function NetworkScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { networkSettings, updateNetworkSettings } = useSettings();
   const { serverUrl, setServerUrl } = useInpaintServer();
@@ -72,7 +74,7 @@ export default function NetworkScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Network</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.network")}</Text>
         <View style={{ width: 38 }} />
       </View>
 

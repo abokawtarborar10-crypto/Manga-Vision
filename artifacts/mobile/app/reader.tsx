@@ -39,6 +39,7 @@ import { callInpaintServer } from "@/services/inpaintClient";
 import { useReaderPreloader } from "@/hooks/useReaderPreloader";
 import { translateImageWithRetry } from "@/services/geminiTranslate";
 import { getResolvedPageImageUri } from "@/hooks/useCachedPageImage";
+import { useTranslation } from "react-i18next";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -52,6 +53,7 @@ const VIEWABILITY_CONFIG = {
 
 export default function ReaderScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{
     mangaId: string;
@@ -635,7 +637,7 @@ export default function ReaderScreen() {
 
   const handleDownload = useCallback(async () => {
     if (Platform.OS === "web") {
-      showBanner("Downloads are only available in the mobile app.");
+           showBanner(t("reader.mobileDownloads", { defaultValue: "Downloads are only available in the mobile app." }));
       return;
     }
     const sid = params.sourceId || "mangadex";
@@ -645,12 +647,15 @@ export default function ReaderScreen() {
     }
     if (chDlState === "done") {
       Alert.alert(
-        "Remove Download",
-        `Delete the offline copy of Chapter ${activeChapterNum}?`,
+         t("library.removeTitle"),
+         t("reader.deleteOfflineChapter", {
+           defaultValue: "Delete the offline copy of Chapter {{number}}?",
+           number: activeChapterNum,
+         }),
         [
-          { text: "Cancel", style: "cancel" },
+           { text: t("common.cancel"), style: "cancel" },
           {
-            text: "Delete",
+             text: t("common.remove"),
             style: "destructive",
             onPress: () => deleteChapter(sid, params.mangaId, activeChapterId),
           },
@@ -670,11 +675,16 @@ export default function ReaderScreen() {
         sid,
         pages,
       );
-      showBanner(`Chapter ${activeChapterNum} saved for offline reading.`);
+       showBanner(t("reader.chapterSaved", {
+         defaultValue: "Chapter {{number}} saved for offline reading.",
+         number: activeChapterNum,
+       }));
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      if (!msg.includes("cancelled")) showBanner(`Download failed: ${msg}`);
+       if (!msg.includes("cancelled")) {
+         showBanner(`${t("errors.network")}: ${msg}`);
+       }
     }
   }, [
     chDlState,
@@ -685,6 +695,7 @@ export default function ReaderScreen() {
     startDownload,
     deleteChapter,
     showBanner,
+     t,
   ]);
 
   // ─── Toggle reading mode ───────────────────────────────────────────────────
@@ -760,7 +771,7 @@ export default function ReaderScreen() {
       <View style={[styles.root, { backgroundColor: colors.background, justifyContent: "center" }]}>
         <SourceStatusBanner sourceId={sid} sourceName={src.name} />
         <SourceErrorView
-          message={loadError ?? "No pages found for this chapter."}
+         message={loadError ?? t("reader.noPages", { defaultValue: "No pages found for this chapter." })}
           sourceName={src.name}
           onRetry={() => setRetryKey((k) => k + 1)}
           onBack={() => router.back()}
@@ -819,7 +830,10 @@ export default function ReaderScreen() {
               <View style={styles.chapterEndCard}>
                 <View style={styles.chapterEndDivider} />
                 <Text style={styles.chapterEndLabel}>
-                  End of Chapter {activeChapterNum}
+                   {t("reader.endOfChapter", {
+                     defaultValue: "End of Chapter {{number}}",
+                     number: activeChapterNum,
+                   })}
                 </Text>
                 {nextChapter ? (
                   <Pressable
@@ -829,13 +843,13 @@ export default function ReaderScreen() {
                     <View style={styles.chapterEndBtnInner}>
                       <View style={{ flex: 1 }}>
                         <Text style={styles.chapterEndBtnSub}>
-                          NEXT CHAPTER
+                           {t("reader.nextChapter", { defaultValue: "NEXT CHAPTER" })}
                         </Text>
                         <Text
                           style={styles.chapterEndBtnTitle}
                           numberOfLines={2}
                         >
-                          Ch. {nextChapter.number}
+                           {t("reader.chapter", { number: nextChapter.number })}
                           {nextChapter.title ? ` — ${nextChapter.title}` : ""}
                         </Text>
                       </View>
@@ -845,17 +859,20 @@ export default function ReaderScreen() {
                 ) : (
                   <View style={styles.endOfSeriesBox}>
                     <Text style={styles.endOfSeriesEmoji}>🎉</Text>
-                    <Text style={styles.endOfSeriesTitle}>All caught up!</Text>
+                     <Text style={styles.endOfSeriesTitle}>
+                       {t("reader.allCaughtUp", { defaultValue: "All caught up!" })}
+                     </Text>
                     <Text style={styles.endOfSeriesSub}>
-                      You've reached the latest chapter.{"\n"}Check back soon
-                      for updates.
+                       {t("reader.latestChapter", {
+                         defaultValue: "You've reached the latest chapter.\nCheck back soon for updates.",
+                       })}
                     </Text>
                     <Pressable
                       onPress={() => router.back()}
                       style={styles.endOfSeriesBtn}
                     >
                       <Text style={styles.endOfSeriesBtnTxt}>
-                        ← Back to Manga
+                         ← {t("reader.backToManga", { defaultValue: "Back to Manga" })}
                       </Text>
                     </Pressable>
                   </View>
@@ -900,7 +917,7 @@ export default function ReaderScreen() {
               <Text style={styles.topTitle} numberOfLines={1}>
                 {params.mangaTitle}
               </Text>
-              <Text style={styles.topSub}>Ch. {activeChapterNum}</Text>
+               <Text style={styles.topSub}>{t("reader.chapter", { number: activeChapterNum })}</Text>
             </View>
 
             {/* Translate Chapter button in top-right */}
@@ -930,7 +947,7 @@ export default function ReaderScreen() {
                 <>
                   <Ionicons name="language-outline" size={14} color="#fff" />
                   <Text style={styles.chapterTranslateTxt}>
-                    {Object.keys(pageTranslations).length > 0 ? "More" : "All"}
+                     {Object.keys(pageTranslations).length > 0 ? t("common.more") : t("common.all")}
                   </Text>
                 </>
               )}
@@ -1073,7 +1090,9 @@ export default function ReaderScreen() {
                 color="#fff"
               />
               <Text style={styles.sideBtnLabel}>
-                {isVertical ? "Webtoon" : "Manga"}
+                 {isVertical
+                   ? t("reader.webtoon", { defaultValue: "Webtoon" })
+                   : t("reader.manga", { defaultValue: "Manga" })}
               </Text>
             </Pressable>
 
@@ -1111,12 +1130,12 @@ export default function ReaderScreen() {
               )}
               <Text style={styles.aiBtnTxt}>
                 {singlePageTranslating
-                  ? "Scanning..."
+                   ? t("reader.scanning", { defaultValue: "Scanning..." })
                   : hasTranslation && overlayVisible
-                    ? "Hide"
+                     ? t("reader.hide", { defaultValue: "Hide" })
                     : hasTranslation
-                      ? "Show"
-                      : "Translate"}
+                       ? t("reader.show", { defaultValue: "Show" })
+                       : t("reader.translate", { defaultValue: "Translate" })}
               </Text>
             </Pressable>
 
@@ -1129,7 +1148,7 @@ export default function ReaderScreen() {
               ]}
             >
               <Ionicons name="list-outline" size={19} color="#fff" />
-              <Text style={styles.sideBtnLabel}>Chapters</Text>
+               <Text style={styles.sideBtnLabel}>{t("reader.chapters", { defaultValue: "Chapters" })}</Text>
             </Pressable>
           </View>
 
@@ -1176,9 +1195,11 @@ export default function ReaderScreen() {
           >
             <View style={styles.nextChapterFloatingInner}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.nextChapterFloatingSub}>NEXT CHAPTER</Text>
+                 <Text style={styles.nextChapterFloatingSub}>
+                   {t("reader.nextChapter", { defaultValue: "NEXT CHAPTER" })}
+                 </Text>
                 <Text style={styles.nextChapterFloatingTitle} numberOfLines={1}>
-                  Ch. {nextChapter.number}
+                   {t("reader.chapter", { number: nextChapter.number })}
                   {nextChapter.title ? ` — ${nextChapter.title}` : ""}
                 </Text>
               </View>

@@ -22,6 +22,7 @@ import {
   SettingsOptionSelector,
 } from "@/components/settings";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { useTranslation } from "react-i18next";
 
 const FONT_FAMILY_OPTS = [
   { value: "system",    label: "System" },
@@ -83,6 +84,7 @@ function ColorSwatch({
 
 export default function FontsScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const {
     fontSettings,
@@ -162,7 +164,7 @@ export default function FontsScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Fonts & Text</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.fonts")}</Text>
         <Pressable onPress={handleReset} style={styles.resetBtn}>
           <Text style={[styles.resetText, { color: colors.primary }]}>Reset</Text>
         </Pressable>

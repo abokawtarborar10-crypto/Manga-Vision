@@ -8,6 +8,7 @@ import {
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
 import type { SourceErrorType } from "@/services/sources";
+import { useTranslation } from "react-i18next";
 
 interface Props {
   errorType?: SourceErrorType;
@@ -63,6 +64,7 @@ export function SourceErrorView({
   compact = false,
 }: Props) {
   const colors = useColors();
+  const { t } = useTranslation();
   const needsVerify = errorType === "cloudflare" || errorType === "auth";
   const displayMessage = message ?? humanMessage(errorType, sourceName);
   const title = humanTitle(errorType);
@@ -87,7 +89,7 @@ export function SourceErrorView({
               onPress={onVerify}
               style={[st.compactBtn, { backgroundColor: colors.primary }]}
             >
-              <Text style={st.compactBtnText}>Verify</Text>
+              <Text style={st.compactBtnText}>{t("common.confirm")}</Text>
             </Pressable>
           )}
           {onRetry && (
@@ -95,7 +97,7 @@ export function SourceErrorView({
               onPress={onRetry}
               style={[st.compactBtn, { backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border }]}
             >
-              <Text style={[st.compactBtnText, { color: colors.foreground }]}>Retry</Text>
+              <Text style={[st.compactBtnText, { color: colors.foreground }]}>{t("common.retry")}</Text>
             </Pressable>
           )}
         </View>
@@ -120,7 +122,7 @@ export function SourceErrorView({
             style={[st.btn, { backgroundColor: colors.primary }]}
           >
             <Ionicons name="globe-outline" size={16} color="#fff" />
-            <Text style={st.btnPrimaryText}>Verify Source</Text>
+            <Text style={st.btnPrimaryText}>{t("source.verify", { defaultValue: "Verify Source" })}</Text>
           </Pressable>
         )}
 
@@ -130,7 +132,7 @@ export function SourceErrorView({
             style={[st.btn, st.outlineBtn, { borderColor: colors.border }]}
           >
             <Ionicons name="refresh" size={16} color={colors.foreground} />
-            <Text style={[st.btnOutlineText, { color: colors.foreground }]}>Retry</Text>
+            <Text style={[st.btnOutlineText, { color: colors.foreground }]}>{t("common.retry")}</Text>
           </Pressable>
         )}
 
@@ -140,7 +142,9 @@ export function SourceErrorView({
               onPress={onChangeSource}
               style={[st.smallBtn, { borderColor: colors.border }]}
             >
-              <Text style={[st.smallBtnText, { color: colors.mutedForeground }]}>Change Source</Text>
+              <Text style={[st.smallBtnText, { color: colors.mutedForeground }]}>
+                {t("source.change", { defaultValue: "Change Source" })}
+              </Text>
             </Pressable>
           )}
           {onBack && (
@@ -148,7 +152,9 @@ export function SourceErrorView({
               onPress={onBack}
               style={[st.smallBtn, { borderColor: colors.border }]}
             >
-              <Text style={[st.smallBtnText, { color: colors.mutedForeground }]}>Go Back</Text>
+              <Text style={[st.smallBtnText, { color: colors.mutedForeground }]}>
+                {t("common.close")}
+              </Text>
             </Pressable>
           )}
         </View>

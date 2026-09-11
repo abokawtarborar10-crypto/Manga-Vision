@@ -11,6 +11,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useSettings, ThemeMode } from "@/context/SettingsContext";
+import { useTranslation } from "react-i18next";
 
 const THEME_OPTIONS: Array<{ value: ThemeMode; icon: string; label: string; desc: string }> = [
   { value: "auto",  icon: "phone-portrait-outline", label: "Auto",       desc: "Follows your system setting" },
@@ -20,6 +21,7 @@ const THEME_OPTIONS: Array<{ value: ThemeMode; icon: string; label: string; desc
 
 export default function ThemeScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { themeMode, setThemeMode } = useSettings();
 
@@ -31,7 +33,7 @@ export default function ThemeScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Theme</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.theme")}</Text>
         <View style={{ width: 38 }} />
       </View>
 

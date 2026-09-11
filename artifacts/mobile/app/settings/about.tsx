@@ -14,6 +14,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { SettingsSection, SettingsItem } from "@/components/settings";
+import { useTranslation } from "react-i18next";
 
 const APP_VERSION = "1.0.0";
 const BUILD_NUMBER = "100";
@@ -63,6 +64,7 @@ function LinkRow({ icon, label, url, desc }: { icon: string; label: string; url?
 
 export default function AboutScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const [showLicenses, setShowLicenses] = useState(false);
   const [tapCount, setTapCount] = useState(0);
@@ -87,7 +89,7 @@ export default function AboutScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>About</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.about")}</Text>
         <View style={{ width: 38 }} />
       </View>
 

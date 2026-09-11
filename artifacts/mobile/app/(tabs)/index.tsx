@@ -22,9 +22,11 @@ import { useSettings } from "@/context/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { getSource, SourceError } from "@/services/sources";
 import { Manga } from "@/services/sources/types";
+import { useTranslation } from "react-i18next";
 
 function SectionHeader({ title, onMore }: { title: string; onMore?: () => void }) {
   const colors = useColors();
+  const { t } = useTranslation();
   return (
     <View style={styles.sectionHeader}>
       <View style={styles.sectionTitleRow}>
@@ -33,7 +35,7 @@ function SectionHeader({ title, onMore }: { title: string; onMore?: () => void }
       </View>
       {onMore && (
         <Pressable onPress={onMore}>
-          <Text style={[styles.moreText, { color: colors.primary }]}>See All</Text>
+           <Text style={[styles.moreText, { color: colors.primary }]}>{t("home.seeAll")}</Text>
         </Pressable>
       )}
     </View>
@@ -42,6 +44,7 @@ function SectionHeader({ title, onMore }: { title: string; onMore?: () => void }
 
 function ContinueReadingCard({ entry }: { entry: ReturnType<typeof useLibrary>["entries"][0] }) {
   const colors = useColors();
+  const { t } = useTranslation();
   return (
     <Pressable
       onPress={() =>
@@ -65,7 +68,9 @@ function ContinueReadingCard({ entry }: { entry: ReturnType<typeof useLibrary>["
           {entry.manga.title}
         </Text>
         <Text style={[styles.continueChapter, { color: colors.primary }]}>
-          {entry.lastChapterNum ? `Ch. ${entry.lastChapterNum}` : "Start Reading"}
+           {entry.lastChapterNum
+             ? t("reader.chapter", { number: entry.lastChapterNum })
+             : t("home.continueReading")}
         </Text>
         <Text style={[styles.continueStatus, { color: colors.mutedForeground }]}>
           {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
@@ -78,6 +83,7 @@ function ContinueReadingCard({ entry }: { entry: ReturnType<typeof useLibrary>["
 
 export default function HomeScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { activeSourceId } = useSettings();
   const { entries } = useLibrary();
@@ -96,11 +102,11 @@ export default function HomeScreen() {
     setSourceError(null);
     const source = getSource(sourceId);
     Promise.all([source.getTrending(), source.getLatestUpdates()])
-      .then(([t, l]) => {
-        setTrending(t);
-        setLatest(l);
-        if (t.length === 0 && l.length === 0) {
-          setSourceError(`${source.name} returned no content. The source may be temporarily unavailable.`);
+       .then(([trendingItems, latestItems]) => {
+         setTrending(trendingItems);
+         setLatest(latestItems);
+         if (trendingItems.length === 0 && latestItems.length === 0) {
+            setSourceError(`${source.name} returned no content. ${t("errors.tryAgain")}`);
         }
       })
       .catch((err) => {
@@ -114,7 +120,7 @@ export default function HomeScreen() {
         } else if (err instanceof Error) {
           setSourceError(err.message);
         } else {
-          setSourceError("Failed to load from this source. Try switching sources.");
+           setSourceError(t("errors.network"));
         }
       })
       .finally(() => setLoading(false));
@@ -179,7 +185,7 @@ export default function HomeScreen() {
               MANGAVERSE
             </Text>
             <Text style={[styles.headerSub, { color: colors.mutedForeground }]}>
-              Your universe of stories
+               {t("home.welcome")}
             </Text>
           </View>
           <Pressable
@@ -195,7 +201,7 @@ export default function HomeScreen() {
       {/* Continue Reading */}
       {reading.length > 0 && (
         <View style={styles.section}>
-          <SectionHeader title="Continue Reading" />
+           <SectionHeader title={t("home.continueReading")} />
           {reading.map((entry) => (
             <ContinueReadingCard key={entry.manga.id} entry={entry} />
           ))}
@@ -205,7 +211,7 @@ export default function HomeScreen() {
       {/* Trending */}
       <View style={styles.section}>
         <SectionHeader
-          title="Trending Now"
+           title={t("home.trending")}
           onMore={() => router.push("/(tabs)/explore")}
         />
         {loading ? (
@@ -235,7 +241,7 @@ export default function HomeScreen() {
       {/* Latest Updates */}
       <View style={styles.section}>
         <SectionHeader
-          title="Latest Updates"
+           title={t("home.latest")}
           onMore={() => router.push("/(tabs)/explore")}
         />
         {loading ? (
@@ -264,7 +270,7 @@ export default function HomeScreen() {
 
       {/* Popular Categories */}
       <View style={styles.section}>
-        <SectionHeader title="Browse by Genre" />
+         <SectionHeader title={t("home.browseGenres")} />
         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreList}>
           {["Action", "Romance", "Fantasy", "Isekai", "Horror", "Comedy", "Sci-Fi", "Mystery"].map(
             (genre) => (

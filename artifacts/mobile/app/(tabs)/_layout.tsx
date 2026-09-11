@@ -8,25 +8,27 @@ import React from "react";
 import { Platform, StyleSheet, View } from "react-native";
 
 import { useColors } from "@/hooks/useColors";
+import { useTranslation } from "react-i18next";
 
 function NativeTabLayout() {
+  const { t } = useTranslation();
   return (
     <NativeTabs>
       <NativeTabs.Trigger name="index">
         <Icon sf={{ default: "house", selected: "house.fill" }} />
-        <Label>Home</Label>
+        <Label>{t("navigation.home")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="explore">
         <Icon sf={{ default: "magnifyingglass", selected: "magnifyingglass" }} />
-        <Label>Explore</Label>
+        <Label>{t("navigation.explore")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="library">
         <Icon sf={{ default: "books.vertical", selected: "books.vertical.fill" }} />
-        <Label>Library</Label>
+        <Label>{t("navigation.library")}</Label>
       </NativeTabs.Trigger>
       <NativeTabs.Trigger name="profile">
         <Icon sf={{ default: "person", selected: "person.fill" }} />
-        <Label>Profile</Label>
+        <Label>{t("navigation.profile")}</Label>
       </NativeTabs.Trigger>
     </NativeTabs>
   );
@@ -34,6 +36,7 @@ function NativeTabLayout() {
 
 function ClassicTabLayout() {
   const colors = useColors();
+  const { t } = useTranslation();
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
 
@@ -62,7 +65,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="index"
         options={{
-          title: "Home",
+          title: t("navigation.home"),
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "house.fill" : "house"} tintColor={color} size={24} />
@@ -74,7 +77,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="explore"
         options={{
-          title: "Explore",
+          title: t("navigation.explore"),
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name="magnifyingglass" tintColor={color} size={24} />
@@ -86,7 +89,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="library"
         options={{
-          title: "Library",
+          title: t("navigation.library"),
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView
@@ -102,7 +105,7 @@ function ClassicTabLayout() {
       <Tabs.Screen
         name="profile"
         options={{
-          title: "Profile",
+          title: t("navigation.profile"),
           tabBarIcon: ({ color, focused }) =>
             isIOS ? (
               <SymbolView name={focused ? "person.fill" : "person"} tintColor={color} size={24} />

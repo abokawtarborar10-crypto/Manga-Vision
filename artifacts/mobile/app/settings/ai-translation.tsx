@@ -21,6 +21,7 @@ import {
 } from "@/components/settings";
 import { GeminiKeyManager } from "@/components/settings/gemini";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { useTranslation } from "react-i18next";
 
 const LANGUAGES = [
   { value: "en", label: "English" },
@@ -84,6 +85,7 @@ function StatCard({
 
 export default function AITranslationScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const {
     readerSettings,
@@ -122,7 +124,7 @@ export default function AITranslationScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>AI Translation</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.aiTranslation")}</Text>
         <View style={{ width: 38 }} />
       </View>
 

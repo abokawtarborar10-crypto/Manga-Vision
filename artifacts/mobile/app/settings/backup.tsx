@@ -18,6 +18,7 @@ import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/context/SettingsContext";
 import { useLibrary } from "@/context/LibraryContext";
 import { SettingsSection, SettingsItem, SettingsToggle } from "@/components/settings";
+import { useTranslation } from "react-i18next";
 
 function ActionCard({
   icon,
@@ -69,6 +70,7 @@ function ActionCard({
 
 export default function BackupScreen() {
   const colors = useColors();
+  const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const { readerSettings, fontSettings, networkSettings, translationSettings, themeMode, geminiModel } = useSettings();
   const { entries } = useLibrary();
@@ -181,7 +183,7 @@ export default function BackupScreen() {
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
-        <Text style={[styles.title, { color: colors.foreground }]}>Backup & Restore</Text>
+        <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.backup")}</Text>
         <View style={{ width: 38 }} />
       </View>
 
