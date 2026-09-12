@@ -6,3 +6,4 @@
 - [Translation image source](translation-image-source.md) — pass the reader-resolved URI directly into native/web image-byte acquisition
 - [Expo preview startup](expo-preview-startup.md) — transient Metro startup failures must retry in the preview instead of leaving a one-shot blank 502 page
 - [Reader lifecycle stability](reader-lifecycle.md) — progress persistence must not change callback identity used by chapter-load effects
+- [RTL layout boundary](rtl-layout-boundary.md) — keep app flex layout stable; apply RTL to text and semantic directional icons, not the mounted tree

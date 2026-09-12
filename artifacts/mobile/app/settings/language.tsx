@@ -8,6 +8,7 @@ import { useI18n } from "@/context/I18nContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useColors } from "@/hooks/useColors";
 import { useTranslation } from "react-i18next";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 export default function LanguageSettingsScreen() {
   const colors = useColors();
@@ -17,7 +18,7 @@ export default function LanguageSettingsScreen() {
   const { direction } = useI18n();
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background, direction }]}>
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: insets.top + 12, borderBottomColor: colors.border }]}>
         <Pressable
           onPress={() => router.back()}
@@ -25,7 +26,7 @@ export default function LanguageSettingsScreen() {
           accessibilityRole="button"
           accessibilityLabel={t("common.close")}
         >
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.language")}</Text>
         <View style={styles.headerSpacer} />
@@ -35,7 +36,12 @@ export default function LanguageSettingsScreen() {
         contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 32 }}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={[styles.label, { color: colors.mutedForeground }]}>
+        <Text
+          style={[
+            styles.label,
+            { color: colors.mutedForeground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+          ]}
+        >
           {t("settings.chooseLanguage")}
         </Text>
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
@@ -58,10 +64,20 @@ export default function LanguageSettingsScreen() {
                 ]}
               >
                 <View style={styles.optionText}>
-                  <Text style={[styles.nativeName, { color: colors.foreground }]}>
+                  <Text
+                    style={[
+                      styles.nativeName,
+                      { color: colors.foreground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+                    ]}
+                  >
                     {option.nativeName}
                   </Text>
-                  <Text style={[styles.englishName, { color: colors.mutedForeground }]}>
+                  <Text
+                    style={[
+                      styles.englishName,
+                      { color: colors.mutedForeground, writingDirection: "ltr", textAlign: direction === "rtl" ? "right" : "left" },
+                    ]}
+                  >
                     {option.englishName}
                   </Text>
                 </View>
@@ -70,7 +86,12 @@ export default function LanguageSettingsScreen() {
             );
           })}
         </View>
-        <Text style={[styles.note, { color: colors.mutedForeground }]}>
+        <Text
+          style={[
+            styles.note,
+            { color: colors.mutedForeground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+          ]}
+        >
           {t("settings.languageDescription")}
         </Text>
       </ScrollView>

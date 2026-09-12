@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { I18nManager, Platform, View } from "react-native";
+import { View } from "react-native";
 import { I18nextProvider } from "react-i18next";
 import {
   i18n,
@@ -32,12 +32,6 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       if (active) setLanguageReady(true);
     });
 
-    // I18nManager keeps native directional semantics aligned with the selected
-    // locale. The root direction style below also updates the mounted tree
-    // immediately, without requiring an app restart.
-    I18nManager.allowRTL(true);
-    I18nManager.forceRTL(isRTL);
-
     return () => {
       active = false;
     };
@@ -54,8 +48,11 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         <View
           style={{
             flex: 1,
-            direction,
-            ...(Platform.OS === "web" ? { writingDirection: direction } : {}),
+            // Keep the established component hierarchy and physical placement
+            // stable. Text direction is applied explicitly to text boundaries;
+            // putting the selected locale direction on this root View reverses
+            // every flex row and lets native icon glyphs be mirrored globally.
+            direction: "ltr",
           }}
         >
           {children}

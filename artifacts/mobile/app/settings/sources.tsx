@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { SourceRegistry } from "@/services/sources/SourceRegistry";
 import { SettingsToggle } from "@/components/settings";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 // ── Source card ───────────────────────────────────────────────────────────────
 
@@ -188,7 +189,7 @@ export default function SourcesScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>Sources</Text>
         <Pressable onPress={handleRefresh} style={styles.refreshBtn}>

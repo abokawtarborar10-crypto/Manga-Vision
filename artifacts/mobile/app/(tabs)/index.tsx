@@ -23,6 +23,7 @@ import { useColors } from "@/hooks/useColors";
 import { getSource, SourceError } from "@/services/sources";
 import { Manga } from "@/services/sources/types";
 import { useTranslation } from "react-i18next";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 function SectionHeader({ title, onMore }: { title: string; onMore?: () => void }) {
   const colors = useColors();
@@ -76,7 +77,7 @@ function ContinueReadingCard({ entry }: { entry: ReturnType<typeof useLibrary>["
           {entry.status.charAt(0).toUpperCase() + entry.status.slice(1)}
         </Text>
       </View>
-      <Ionicons name="chevron-forward" size={18} color={colors.mutedForeground} />
+      <DirectionalIcon name="chevron-forward" size={18} color={colors.mutedForeground} />
     </Pressable>
   );
 }

@@ -12,6 +12,7 @@ import {
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/context/SettingsContext";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import {
   SettingsItem,
   SettingsOptionSelector,
@@ -36,7 +37,7 @@ export default function ImageProcessingSettingsScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>Image Processing</Text>
         <View style={{ width: 38 }} />

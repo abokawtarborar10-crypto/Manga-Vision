@@ -25,6 +25,7 @@ import { SourceErrorView } from "@/components/SourceErrorView";
 import SourceStatusBanner from "@/components/SourceStatusBanner";
 import { getSource, SourceError } from "@/services/sources";
 import { Chapter, LibraryStatus, Manga } from "@/services/sources/types";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import { useTranslation } from "react-i18next";
 
 const STATUS_ICONS: Record<LibraryStatus, string> = {
@@ -226,7 +227,7 @@ export default function MangaScreen() {
           { top: topPadding + 8, backgroundColor: "rgba(0,0,0,0.6)" },
         ]}
       >
-        <Ionicons name="arrow-back" size={22} color="#fff" />
+        <DirectionalIcon name="arrow-back" size={22} color="#fff" />
       </Pressable>
 
       <ScrollView

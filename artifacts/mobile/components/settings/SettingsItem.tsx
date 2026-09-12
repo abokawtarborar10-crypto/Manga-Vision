@@ -2,6 +2,8 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useI18n } from "@/context/I18nContext";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 interface SettingsItemProps {
   icon: string;
@@ -27,6 +29,7 @@ export function SettingsItem({
   noChevron = false,
 }: SettingsItemProps) {
   const colors = useColors();
+  const { direction } = useI18n();
 
   const labelColor = destructive ? colors.destructive : colors.foreground;
   const iconBg = destructive ? `${colors.destructive}1A` : `${colors.primary}1A`;
@@ -52,11 +55,23 @@ export function SettingsItem({
 
       {/* Label + description */}
       <View style={styles.middle}>
-        <Text style={[styles.label, { color: labelColor }]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.label,
+            { color: labelColor, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+          ]}
+          numberOfLines={1}
+        >
           {label}
         </Text>
         {description ? (
-          <Text style={[styles.description, { color: colors.mutedForeground }]} numberOfLines={2}>
+          <Text
+            style={[
+              styles.description,
+              { color: colors.mutedForeground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+            ]}
+            numberOfLines={2}
+          >
             {description}
           </Text>
         ) : null}
@@ -66,7 +81,7 @@ export function SettingsItem({
       {right !== undefined ? (
         right
       ) : !noChevron && onPress ? (
-        <Ionicons name="chevron-forward" size={15} color={colors.mutedForeground} />
+        <DirectionalIcon name="chevron-forward" size={15} color={colors.mutedForeground} />
       ) : null}
     </Pressable>
   );

@@ -1,0 +1,775 @@
+CRITICAL RTL / ARABIC UI REGRESSION — FIX THE ROOT CAUSE WITHOUT DESTROYING THE ORIGINAL DESIGN
+
+The internationalization system is now implemented, but there is a serious visual regression when switching the application language to Arabic.
+
+CURRENT PROBLEM:
+
+When the user changes the application language to Arabic:
+
+1. Many icons become visually incorrect or "scrambled".
+2. Some icons are mirrored when they should NOT be mirrored.
+3. Some directional icons may be mirrored incorrectly.
+4. Several UI layouts no longer match their original design.
+5. Spacing/alignment/order of elements changes incorrectly.
+6. Some screens no longer preserve the original visual structure.
+7. The English/LTR version has the intended original design, but Arabic/RTL causes parts of the UI to become distorted.
+
+DO NOT treat this as a simple "set everything to RTL" problem.
+
+The goal is:
+
+Arabic text + correct RTL behavior + preserved original visual design.
+
+==================================================
+PHASE 1 — STOP BLIND RTL PATCHING
+==================================================
+
+Before changing code, inspect the CURRENT i18n and RTL implementation.
+
+Determine exactly how RTL is currently being applied.
+
+Search for:
+
+- I18nManager
+- forceRTL
+- allowRTL
+- isRTL
+- direction
+- writingDirection
+- flexDirection
+- row-reverse
+- scaleX(-1)
+- transform
+- mirrored
+- RTL providers
+- direction context
+- locale providers
+- layout direction helpers
+- icon mirroring logic
+- navigation direction logic.
+
+Also inspect every recent change related to the i18n implementation.
+
+Do not assume the current RTL implementation is correct.
+
+Find the exact architectural reason why switching to Arabic changes the visual structure incorrectly.
+
+==================================================
+PHASE 2 — PRESERVE THE ORIGINAL DESIGN
+==================================================
+
+The existing LTR design is the visual reference.
+
+IMPORTANT:
+
+Do NOT redesign the application.
+
+Do NOT change:
+
+- colors
+- typography unnecessarily
+- spacing unnecessarily
+- card sizes
+- button sizes
+- component hierarchy
+- visual style
+- screen structure
+- reader design
+- navigation design
+- animations.
+
+The objective is NOT to create a new Arabic design.
+
+The objective is to make the EXISTING design work correctly in RTL.
+
+Think of it as:
+
+Original UI
+      +
+Correct RTL behavior
+      =
+Same visual quality in Arabic
+
+==================================================
+PHASE 3 — CORRECT RTL ARCHITECTURE
+==================================================
+
+Separate these concepts:
+
+1. TEXT DIRECTION
+2. LAYOUT DIRECTION
+3. ICON DIRECTION
+4. NAVIGATION DIRECTION
+5. CONTENT ORDER.
+
+They must NOT all be handled by blindly applying row-reverse or mirroring everything.
+
+Implement RTL at the correct architectural level.
+
+Use the framework's recommended RTL mechanism.
+
+Do NOT manually add `flexDirection: row-reverse` to every component unless that component genuinely requires it.
+
+Do NOT globally reverse every row.
+
+Do NOT globally mirror every image/icon.
+
+==================================================
+PHASE 4 — ICON MIRRORING MUST BE SELECTIVE
+==================================================
+
+This is extremely important.
+
+Do NOT mirror all icons when Arabic is selected.
+
+Create a clear distinction between:
+
+A) Directional icons
+
+These may need RTL-aware behavior:
+
+- back
+- forward
+- next
+- previous
+- left arrow
+- right arrow
+- chevron left
+- chevron right
+- navigation arrows.
+
+B) Non-directional icons
+
+These should generally NOT be mirrored:
+
+- search
+- settings
+- heart
+- bookmark
+- download
+- upload
+- translate
+- language
+- information
+- notification
+- profile
+- home
+- menu
+- edit
+- delete
+- refresh
+- filter
+- camera
+- image
+- play
+- pause
+- volume
+- theme icons
+- generic action icons.
+
+C) Icons whose visual meaning is orientation-specific
+
+These must be evaluated individually.
+
+Do NOT use a global:
+
+transform: [{ scaleX: -1 }]
+
+for all icons.
+
+If there is currently a global icon-mirroring mechanism, identify it and replace it with a semantic/directional approach.
+
+==================================================
+PHASE 5 — DO NOT MIRROR UI ELEMENTS THAT SHOULD REMAIN VISUALLY STABLE
+==================================================
+
+Some UI components should preserve their visual orientation even when the surrounding layout becomes RTL.
+
+Examples may include:
+
+- logos
+- brand marks
+- artwork
+- manga/manhwa images
+- character images
+- decorative graphics
+- progress indicators where direction has semantic meaning
+- media controls
+- custom illustrations.
+
+Do not automatically mirror these.
+
+==================================================
+PHASE 6 — FIX FLEXBOX / LAYOUT DIRECTION
+==================================================
+
+Audit components that currently depend on:
+
+- flexDirection
+- justifyContent
+- alignItems
+- position
+- left/right
+- marginLeft/marginRight
+- paddingLeft/paddingRight
+- borderLeft/borderRight.
+
+Determine which values should become RTL-aware and which must remain physically anchored.
+
+Do NOT blindly replace:
+
+left → right
+right → left
+
+throughout the project.
+
+Use logical layout concepts where supported.
+
+For example, distinguish between:
+
+- logical "start/end"
+and
+- physical "left/right".
+
+Some controls are semantically tied to the physical side of the screen and should not be reversed.
+
+==================================================
+PHASE 7 — COMPONENT-BY-COMPONENT RTL AUDIT
+==================================================
+
+Inspect all major UI areas individually.
+
+At minimum audit:
+
+1. App shell
+2. Header
+3. Top navigation
+4. Bottom navigation
+5. Drawer/sidebar
+6. Home screen
+7. Search screen
+8. Lists
+9. Cards
+10. Manga/manhwa details
+11. Chapter list
+12. Reader
+13. Reader controls
+14. Settings
+15. Language selector
+16. Dialogs
+17. Modals
+18. Bottom sheets
+19. Forms
+20. Buttons
+21. Switches
+22. Sliders
+23. Tabs
+24. Dropdowns
+25. Error screens
+26. Empty states
+27. Loading states
+28. Profile/account UI.
+
+For each component ask:
+
+- Should the layout direction reverse?
+- Should text align right?
+- Should element order reverse?
+- Should icons mirror?
+- Should this particular icon remain unchanged?
+- Should margins/padding follow start/end?
+- Should navigation arrows reverse?
+- Should the component preserve physical positioning?
+
+Do not apply one global rule to all components.
+
+==================================================
+PHASE 8 — NAVIGATION
+==================================================
+
+Audit navigation carefully.
+
+Arabic navigation should feel natural for RTL.
+
+Verify:
+
+- back button
+- forward button
+- drawer
+- tabs
+- navigation headers
+- screen transitions
+- navigation arrows.
+
+However, do NOT assume every navigation animation should automatically be reversed.
+
+Preserve the framework's intended navigation behavior unless RTL semantics genuinely require a change.
+
+==================================================
+PHASE 9 — SETTINGS SCREEN
+==================================================
+
+The Settings screen is especially important.
+
+When Arabic is selected:
+
+- section titles must translate
+- setting labels must translate
+- descriptions must translate
+- switches must remain correctly positioned
+- icons must remain correct
+- chevrons must point correctly
+- rows must maintain clean spacing
+- values must remain readable
+- the overall original Settings design must remain intact.
+
+The Language selector itself must also remain visually correct.
+
+==================================================
+PHASE 10 — TEXT ALIGNMENT
+==================================================
+
+Arabic text should normally be right-aligned where appropriate.
+
+But do NOT globally force:
+
+textAlign: "right"
+
+on every text element.
+
+Some content may need:
+
+- center alignment
+- numeric alignment
+- icon labels
+- buttons
+- titles
+- badges.
+
+Respect the semantic purpose of each component.
+
+==================================================
+PHASE 11 — MIXED RTL/LTR CONTENT
+==================================================
+
+The application may display mixed content such as:
+
+Arabic + English
+Arabic + numbers
+Arabic + manga titles
+URLs
+file names
+chapter numbers
+usernames
+technical terms.
+
+Ensure these do not become visually corrupted.
+
+Pay particular attention to:
+
+- numbers
+- punctuation
+- parentheses
+- percentages
+- URLs
+- filenames
+- English titles inside Arabic UI.
+
+Do not reverse strings manually.
+
+Do not reverse character order.
+
+Do not manipulate Unicode manually unless absolutely required.
+
+==================================================
+PHASE 12 — ICON COMPONENT ARCHITECTURE
+==================================================
+
+If the application has a shared Icon component, inspect it first.
+
+Prefer fixing RTL behavior centrally rather than adding individual hacks to dozens of screens.
+
+For example, the icon system should conceptually know whether an icon is:
+
+directional
+or
+non-directional.
+
+Then directional icons can respond to RTL while non-directional icons remain unchanged.
+
+Do not introduce duplicated icon implementations.
+
+Do not modify every screen separately if a shared icon component is the actual source of the problem.
+
+==================================================
+PHASE 13 — ABSOLUTE POSITIONING
+==================================================
+
+Audit components using:
+
+position: absolute
+
+with:
+
+left
+right
+top
+bottom.
+
+RTL must not accidentally move overlays to the wrong side.
+
+Pay particular attention to:
+
+- floating buttons
+- close buttons
+- reader controls
+- badges
+- notification indicators
+- settings icons
+- header actions
+- overlay controls.
+
+Preserve the original visual composition.
+
+==================================================
+PHASE 14 — READER SAFETY
+==================================================
+
+The manga/manhwa reader is especially sensitive.
+
+DO NOT break:
+
+- scrolling
+- page ordering
+- image positioning
+- reader controls
+- translation overlays
+- text removal/whiteout
+- page navigation
+- image rendering.
+
+Changing language must NOT cause:
+
+- page order reversal
+- image mirroring
+- broken gestures
+- broken scrolling
+- reader remounting
+- chapter reloads
+- page reset to image 1.
+
+IMPORTANT:
+
+RTL concerns the APPLICATION UI.
+
+It must NOT automatically reverse the actual manga/manhwa artwork or page content unless the reader's product requirements explicitly demand it.
+
+Manga/manhwa images must remain visually unchanged.
+
+==================================================
+PHASE 15 — DO NOT USE RTL AS A REASON TO REWRITE THE READER
+==================================================
+
+The reader has already had scrolling/state regressions in the past.
+
+Therefore:
+
+Do NOT modify reader architecture unnecessarily.
+
+Do NOT introduce another ScrollView.
+
+Do NOT change scroll ownership.
+
+Do NOT change pagination.
+
+Do NOT change chapter loading.
+
+Do NOT change image loading.
+
+Do NOT change zoom/gesture architecture.
+
+Only modify reader UI elements that genuinely require RTL support.
+
+==================================================
+PHASE 16 — LIVE LANGUAGE SWITCHING
+==================================================
+
+Switching:
+
+English → Arabic
+
+must update the UI immediately.
+
+Switching:
+
+Arabic → English
+
+must restore the original LTR layout correctly.
+
+This must work repeatedly:
+
+English
+→ Arabic
+→ French
+→ Spanish
+→ Chinese
+→ English
+→ Arabic
+
+without progressively corrupting the layout.
+
+IMPORTANT:
+
+Do not apply irreversible layout transformations every time the locale changes.
+
+Avoid cumulative transformations such as repeatedly applying:
+
+scaleX(-1)
+
+or repeatedly mutating global layout state.
+
+The same UI should remain stable after multiple language switches.
+
+==================================================
+PHASE 17 — RTL STATE LIFECYCLE
+==================================================
+
+Inspect whether the current framework requires a reload/remount for true global RTL changes.
+
+If it does, determine the safest supported approach.
+
+However:
+
+Do not implement an uncontrolled full application reset.
+
+Do not reset:
+
+- reader state
+- chapter state
+- navigation unnecessarily
+- user settings
+- downloaded content
+- authentication
+- application data.
+
+If a controlled remount is required by the framework, isolate it to the appropriate application shell and preserve important state.
+
+If runtime RTL switching is supported without a restart, use the proper supported mechanism.
+
+==================================================
+PHASE 18 — VISUAL REGRESSION TESTING
+==================================================
+
+Test the same screens in:
+
+1. English / LTR
+2. Arabic / RTL
+
+Compare them carefully.
+
+The Arabic version should:
+
+- translate correctly
+- use RTL where appropriate
+- maintain the same visual quality
+- maintain consistent spacing
+- maintain proper component sizes
+- preserve icon quality
+- preserve visual hierarchy.
+
+Then test:
+
+Arabic → English
+
+and confirm the original LTR design is fully restored.
+
+==================================================
+PHASE 19 — MULTIPLE LANGUAGE TEST
+==================================================
+
+Test:
+
+English
+Arabic
+French
+Spanish
+Chinese
+
+Do not fix Arabic in a way that breaks LTR languages.
+
+Verify that:
+
+- English = LTR
+- French = LTR
+- Spanish = LTR
+- Chinese = LTR
+- Arabic = RTL.
+
+The direction must be determined from locale metadata, not hardcoded based on random components.
+
+==================================================
+PHASE 20 — SEARCH FOR EXISTING RTL HACKS
+==================================================
+
+Search the project for suspicious code such as:
+
+- scaleX(-1)
+- scaleX: -1
+- row-reverse
+- left/right swapping
+- manual icon mirroring
+- locale-specific style duplication
+- `if (isRTL)` blocks
+- Arabic-only style overrides.
+
+For each occurrence determine whether it is:
+
+1. Correct and intentional
+2. Required but incomplete
+3. A workaround
+4. A source of the current bug.
+
+Remove redundant or conflicting RTL hacks.
+
+Do not remove correct behavior without understanding why it exists.
+
+==================================================
+PHASE 21 — ROOT CAUSE FIRST
+==================================================
+
+Before finalizing the fix, identify the ACTUAL root cause.
+
+Examples of possible root causes include:
+
+- global icon mirroring
+- incorrect `row-reverse`
+- global style mutation
+- incorrect RTL provider
+- duplicated direction state
+- incorrect I18nManager usage
+- remounting the application incorrectly
+- hardcoded left/right positioning
+- applying RTL to artwork/images
+- navigation direction being confused with layout direction
+- shared component incorrectly interpreting RTL
+- cumulative transforms
+- locale state causing style objects to be recreated incorrectly.
+
+Do NOT simply make the UI "look okay" with random offsets.
+
+Fix the underlying architecture.
+
+==================================================
+PHASE 22 — REGRESSION SAFETY
+==================================================
+
+The following features MUST continue working:
+
+- language switching
+- language persistence
+- device language detection
+- translations
+- settings
+- themes
+- navigation
+- authentication
+- manga/manhwa browsing
+- search
+- manga details
+- chapter list
+- reader
+- image loading
+- reader scrolling
+- translation
+- OCR
+- text removal/whiteout
+- downloads
+- caching
+- existing API functionality.
+
+Do not sacrifice existing functionality to fix RTL.
+
+==================================================
+PHASE 23 — FINAL VALIDATION
+==================================================
+
+After fixing the problem, run:
+
+- typecheck
+- lint
+- tests
+- build
+- Android validation if applicable.
+
+Also perform a manual visual RTL audit.
+
+Test:
+
+English → Arabic
+Arabic → English
+English → French
+French → Spanish
+Spanish → Chinese
+Chinese → Arabic
+
+Open multiple screens after every switch.
+
+Verify there is no progressive layout corruption.
+
+==================================================
+PHASE 24 — FINAL REPORT
+==================================================
+
+Do not simply say:
+
+"RTL fixed."
+
+Provide a technical report containing:
+
+1. Exact root cause of the icon corruption.
+
+2. Exact root cause of the layout/design regression.
+
+3. Which files/components caused it.
+
+4. Which RTL mechanism was incorrectly implemented.
+
+5. What was changed.
+
+6. How icon mirroring is now handled.
+
+7. Which icons are directional and which remain unchanged.
+
+8. How layout direction is handled.
+
+9. How navigation direction is handled.
+
+10. How the reader was protected from RTL regressions.
+
+11. Tests performed.
+
+12. Build/typecheck results.
+
+13. Confirmation that English/LTR still matches the original design.
+
+14. Confirmation that Arabic/RTL now preserves the intended design while correctly supporting RTL.
+
+15. Any remaining known issues.
+
+MOST IMPORTANT:
+
+Do not redesign the application.
+
+Do not create a second RTL system.
+
+Do not add random CSS/style patches.
+
+Do not globally mirror icons.
+
+Do not globally reverse every row.
+
+Do not modify manga/manhwa artwork.
+
+Do not modify reader scrolling or chapter loading unless the root cause is directly related to the RTL implementation.
+
+Find the root cause, fix it at the correct architectural level, and preserve the original application design.

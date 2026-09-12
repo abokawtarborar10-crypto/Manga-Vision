@@ -24,6 +24,7 @@ import {
 } from "@/components/settings";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
 import { useTranslation } from "react-i18next";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 export default function NetworkScreen() {
   const colors = useColors();
@@ -72,7 +73,7 @@ export default function NetworkScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.network")}</Text>
         <View style={{ width: 38 }} />

@@ -11,6 +11,8 @@ import {
   View,
 } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { useI18n } from "@/context/I18nContext";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -36,6 +38,7 @@ export function SettingsSection({
   subtitle,
 }: SettingsSectionProps) {
   const colors = useColors();
+  const { direction, isRTL } = useI18n();
   const [expanded, setExpanded] = useState(defaultExpanded);
   const rotateAnim = useRef(new Animated.Value(defaultExpanded ? 1 : 0)).current;
 
@@ -57,7 +60,7 @@ export function SettingsSection({
 
   const chevronRotate = rotateAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: ["0deg", "90deg"],
+    outputRange: isRTL ? ["0deg", "-90deg"] : ["0deg", "90deg"],
   });
 
   return (
@@ -72,9 +75,21 @@ export function SettingsSection({
         </View>
 
         <View style={styles.headerText}>
-          <Text style={[styles.headerTitle, { color: colors.foreground }]}>{title}</Text>
+          <Text
+            style={[
+              styles.headerTitle,
+              { color: colors.foreground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+            ]}
+          >
+            {title}
+          </Text>
           {subtitle ? (
-            <Text style={[styles.headerSubtitle, { color: colors.mutedForeground }]}>
+            <Text
+              style={[
+                styles.headerSubtitle,
+                { color: colors.mutedForeground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+              ]}
+            >
               {subtitle}
             </Text>
           ) : null}
@@ -87,7 +102,7 @@ export function SettingsSection({
         )}
 
         <Animated.View style={{ transform: [{ rotate: chevronRotate }] }}>
-          <Ionicons name="chevron-forward" size={15} color={colors.mutedForeground} />
+          <DirectionalIcon name="chevron-forward" size={15} color={colors.mutedForeground} />
         </Animated.View>
       </Pressable>
 

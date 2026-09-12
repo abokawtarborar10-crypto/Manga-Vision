@@ -2,6 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import React from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useColors } from "@/hooks/useColors";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import { Chapter } from "@/services/sources/types";
 
 interface Props {
@@ -87,7 +88,7 @@ export function ChapterItem({ chapter, onPress, isRead = false, isCurrent = fals
         {isCurrent && (
           <Ionicons name="play-circle" size={18} color={colors.primary} />
         )}
-        <Ionicons
+        <DirectionalIcon
           name="chevron-forward"
           size={14}
           color={colors.mutedForeground}

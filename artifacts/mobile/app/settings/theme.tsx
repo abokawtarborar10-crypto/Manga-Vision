@@ -10,6 +10,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/useColors";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import { useSettings, ThemeMode } from "@/context/SettingsContext";
 import { useTranslation } from "react-i18next";
 
@@ -31,7 +32,7 @@ export default function ThemeScreen() {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.theme")}</Text>
         <View style={{ width: 38 }} />

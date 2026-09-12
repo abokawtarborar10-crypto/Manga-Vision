@@ -21,6 +21,7 @@ import {
 } from "@/components/settings";
 import { GeminiKeyManager } from "@/components/settings/gemini";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import { useTranslation } from "react-i18next";
 
 const LANGUAGES = [
@@ -122,7 +123,7 @@ export default function AITranslationScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.aiTranslation")}</Text>
         <View style={{ width: 38 }} />

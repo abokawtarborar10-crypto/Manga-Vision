@@ -14,6 +14,8 @@ import { useColors } from "@/hooks/useColors";
 import { useSettings } from "@/context/SettingsContext";
 import { useTokens } from "@/context/TokenContext";
 import { useTranslation } from "react-i18next";
+import { useI18n } from "@/context/I18nContext";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 // ── Menu definition ───────────────────────────────────────────────────────────
 
@@ -36,6 +38,7 @@ interface MenuSection {
 
 const MenuRow = memo(function MenuRow({ item }: { item: MenuItem }) {
   const colors = useColors();
+  const { direction } = useI18n();
   const badge = item.badge?.();
 
   return (
@@ -62,10 +65,21 @@ const MenuRow = memo(function MenuRow({ item }: { item: MenuItem }) {
         />
       </View>
       <View style={styles.rowText}>
-        <Text style={[styles.rowLabel, { color: colors.foreground }]}>
+        <Text
+          style={[
+            styles.rowLabel,
+            { color: colors.foreground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+          ]}
+        >
           {item.label}
         </Text>
-        <Text style={[styles.rowDesc, { color: colors.mutedForeground }]} numberOfLines={1}>
+        <Text
+          style={[
+            styles.rowDesc,
+            { color: colors.mutedForeground, writingDirection: direction, textAlign: direction === "rtl" ? "right" : "left" },
+          ]}
+          numberOfLines={1}
+        >
           {item.desc}
         </Text>
       </View>
@@ -74,7 +88,7 @@ const MenuRow = memo(function MenuRow({ item }: { item: MenuItem }) {
           <Text style={styles.badgeText}>{badge}</Text>
         </View>
       )}
-      <Ionicons name="chevron-forward" size={14} color={colors.mutedForeground} />
+      <DirectionalIcon name="chevron-forward" size={14} color={colors.mutedForeground} />
     </Pressable>
   );
 });
@@ -217,7 +231,7 @@ export default function SettingsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.title")}</Text>
         <View style={{ width: 38 }} />

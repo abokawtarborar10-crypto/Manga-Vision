@@ -22,6 +22,7 @@ import {
   SettingsOptionSelector,
 } from "@/components/settings";
 import { SettingsSlider } from "@/components/settings/SettingsSlider";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 import { useTranslation } from "react-i18next";
 
 const FONT_FAMILY_OPTS = [
@@ -162,7 +163,7 @@ export default function FontsScreen() {
       {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12, borderBottomColor: colors.border }]}>
         <Pressable onPress={() => router.back()} style={styles.backBtn}>
-          <Ionicons name="arrow-back" size={22} color={colors.foreground} />
+          <DirectionalIcon name="arrow-back" size={22} color={colors.foreground} />
         </Pressable>
         <Text style={[styles.title, { color: colors.foreground }]}>{t("settings.fonts")}</Text>
         <Pressable onPress={handleReset} style={styles.resetBtn}>

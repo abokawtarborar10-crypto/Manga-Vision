@@ -16,6 +16,7 @@ import { useSettings } from "@/context/SettingsContext";
 import { useTokens } from "@/context/TokenContext";
 import { useTranslation } from "react-i18next";
 import { useColors } from "@/hooks/useColors";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 // ── Stat card ─────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ function SettingRow({
             {value}
           </Text>
         )}
-        <Ionicons name="chevron-forward" size={16} color={colors.mutedForeground} />
+        <DirectionalIcon name="chevron-forward" size={16} color={colors.mutedForeground} />
       </View>
     </Pressable>
   );

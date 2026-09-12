@@ -40,6 +40,7 @@ import { useReaderPreloader } from "@/hooks/useReaderPreloader";
 import { translateImageWithRetry } from "@/services/geminiTranslate";
 import { getResolvedPageImageUri } from "@/hooks/useCachedPageImage";
 import { useTranslation } from "react-i18next";
+import { DirectionalIcon } from "@/components/DirectionalIcon";
 
 const { width: SCREEN_W } = Dimensions.get("window");
 
@@ -853,7 +854,7 @@ export default function ReaderScreen() {
                           {nextChapter.title ? ` — ${nextChapter.title}` : ""}
                         </Text>
                       </View>
-                      <Ionicons name="chevron-forward" size={22} color="#fff" />
+                      <DirectionalIcon name="chevron-forward" size={22} color="#fff" />
                     </View>
                   </Pressable>
                 ) : (
@@ -910,7 +911,7 @@ export default function ReaderScreen() {
           />
           <View style={styles.topBar}>
             <Pressable onPress={() => router.back()} style={styles.iconTouch}>
-              <Ionicons name="arrow-back" size={22} color="#fff" />
+              <DirectionalIcon name="arrow-back" size={22} color="#fff" />
             </Pressable>
 
             <View style={styles.topCenter}>
@@ -1203,7 +1204,7 @@ export default function ReaderScreen() {
                   {nextChapter.title ? ` — ${nextChapter.title}` : ""}
                 </Text>
               </View>
-              <Ionicons name="arrow-forward-circle" size={28} color="#fff" />
+            <DirectionalIcon name="arrow-forward-circle" size={28} color="#fff" />
             </View>
           </Pressable>
         )}
