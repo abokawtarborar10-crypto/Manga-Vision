@@ -13,63 +13,90 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { MangaCard } from "@/components/MangaCard";
 import { SourceSwitcher } from "@/components/SourceSwitcher";
 import SourceVerificationModal from "@/components/SourceVerificationModal";
 import { useSettings } from "@/context/SettingsContext";
 import { useColors } from "@/hooks/useColors";
-import { getSource, SourceError } from "@/services/sources";
+import { getCategory, matchesCategory, MANGA_CATEGORIES, MangaCategoryId } from "@/services/categories";
+import { ALL_SOURCES, SourceError } from "@/services/sources";
 import { Manga } from "@/services/sources/types";
 import { useTranslation } from "react-i18next";
 
-const GENRES = [
-  "All", "Action", "Adventure", "Comedy", "Drama", "Fantasy",
-  "Horror", "Isekai", "Mystery", "Romance", "Sci-Fi", "Slice of Life",
-];
+function routeCategory(value: string | string[] | undefined): MangaCategoryId {
+  return getCategory(typeof value === "string" ? value : undefined).id;
+}
 
 export default function ExploreScreen() {
   const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ genre?: string }>();
-  const { activeSourceId } = useSettings();
+  const { activeSourceId, settingsReady } = useSettings();
 
   const [query, setQuery] = useState("");
-  const [activeGenre, setActiveGenre] = useState(params.genre ?? "All");
+  const [activeCategory, setActiveCategory] = useState<MangaCategoryId>(routeCategory(params.genre));
   const [results, setResults] = useState<Manga[]>([]);
   const [loading, setLoading] = useState(false);
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [cfSource, setCfSource] = useState<{ id: string; name: string; url: string } | null>(null);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
+  const queryEffectReadyRef = useRef(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
-  const doSearch = useCallback(
-    async (q: string, pageNum: number, reset = false) => {
-      const source = getSource(activeSourceId);
+  useEffect(() => {
+    const nextCategory = routeCategory(params.genre);
+    setActiveCategory((current) => (current === nextCategory ? current : nextCategory));
+  }, [params.genre]);
+
+  const fetchPage = useCallback(
+    async (q: string, categoryId: MangaCategoryId, pageNum: number, reset: boolean) => {
+      if (!settingsReady) return;
+
+      const source = ALL_SOURCES.find((candidate) => candidate.id === activeSourceId);
+      if (!source) {
+        setSourceError(t("errors.network"));
+        return;
+      }
+
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+      const requestId = ++requestIdRef.current;
+
       setLoading(true);
-      if (reset) setSourceError(null);
+      if (reset) {
+        setResults([]);
+        setPage(0);
+        setHasMore(true);
+        setSourceError(null);
+      }
+
       try {
-        let data: Manga[];
-        if (q.trim()) {
-          data = await source.search(q.trim(), pageNum);
-        } else {
-          data = await source.getTrending(pageNum);
-        }
-        if (reset) {
-          setResults(data);
-        } else {
-          setResults((prev) => [...prev, ...data]);
-        }
+        const trimmedQuery = q.trim();
+        const data = trimmedQuery
+          ? await source.search(trimmedQuery, pageNum, controller.signal)
+          : await source.getTrending(pageNum, controller.signal);
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
+
+        const filtered = data.filter((manga) => matchesCategory(manga.genres, categoryId));
+        setResults((previous) => {
+          const next = reset ? filtered : [...previous, ...filtered];
+          return next.filter((manga, index, all) => all.findIndex((item) => item.id === manga.id) === index);
+        });
+        setPage(pageNum);
         setHasMore(data.length >= 20);
       } catch (err) {
+        if (controller.signal.aborted || requestId !== requestIdRef.current) return;
         setHasMore(false);
         if (err instanceof SourceError) {
           if (err.type === "cloudflare") {
-            const src = getSource(activeSourceId);
-            setCfSource({ id: activeSourceId, name: src.name, url: src.baseUrl });
+            setCfSource({ id: source.id, name: source.name, url: source.baseUrl });
           } else {
             setSourceError(err.message);
           }
@@ -79,36 +106,49 @@ export default function ExploreScreen() {
           setSourceError(t("errors.network"));
         }
       } finally {
-        setLoading(false);
+        if (requestId === requestIdRef.current) setLoading(false);
       }
     },
-    [activeSourceId]
+    [activeSourceId, settingsReady, t],
   );
 
   useEffect(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      setPage(0);
-      doSearch(query, 0, true);
+    if (!settingsReady) return;
+    void fetchPage(query, activeCategory, 0, true);
+  }, [activeCategory, activeSourceId, fetchPage, settingsReady]);
+
+  useEffect(() => {
+    if (!queryEffectReadyRef.current) {
+      queryEffectReadyRef.current = true;
+      return;
+    }
+    const timeout = setTimeout(() => {
+      void fetchPage(query, activeCategory, 0, true);
     }, 400);
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [query, activeSourceId, doSearch]);
+    return () => clearTimeout(timeout);
+  }, [fetchPage, query, activeCategory]);
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
+
+  const selectCategory = (categoryId: MangaCategoryId) => {
+    setActiveCategory(categoryId);
+    router.setParams({ genre: categoryId === "all" ? undefined : categoryId });
+  };
 
   const loadMore = () => {
     if (!loading && hasMore) {
-      const next = page + 1;
-      setPage(next);
-      doSearch(query, next);
+      void fetchPage(query, activeCategory, page + 1, false);
     }
   };
 
-  const numColumns = 3;
+  const retry = () => {
+    void fetchPage(query, activeCategory, 0, true);
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* CF Verification modal */}
       {cfSource && (
         <SourceVerificationModal
           visible
@@ -117,15 +157,13 @@ export default function ExploreScreen() {
           sourceUrl={cfSource.url}
           onVerified={() => {
             setCfSource(null);
-            setPage(0);
-            doSearch(query, 0, true);
+            retry();
           }}
           onDismiss={() => setCfSource(null)}
           onChangeSource={() => setCfSource(null)}
         />
       )}
 
-      {/* Header */}
       <View style={[styles.header, { paddingTop: topPadding + 12 }]}>
         <View
           style={[
@@ -151,18 +189,15 @@ export default function ExploreScreen() {
         <SourceSwitcher />
       </View>
 
-      {/* Genre Filter */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.genreRow}
-      >
-        {GENRES.map((g) => {
-          const active = g === activeGenre;
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreRow}>
+        {MANGA_CATEGORIES.map((category) => {
+          const active = category.id === activeCategory;
           return (
             <Pressable
-              key={g}
-              onPress={() => setActiveGenre(g)}
+              key={category.id}
+              accessibilityRole="button"
+              accessibilityState={{ selected: active }}
+              onPress={() => selectCategory(category.id)}
               style={[
                 styles.genrePill,
                 {
@@ -172,38 +207,31 @@ export default function ExploreScreen() {
                 },
               ]}
             >
-              <Text
-                style={[
-                  styles.genreText,
-                  { color: active ? "#fff" : colors.mutedForeground },
-                ]}
-              >
-                {g}
+              <CategoryIcon name={category.icon} active={active} />
+              <Text style={[styles.genreText, { color: active ? "#fff" : colors.mutedForeground }]}>
+                {t(category.labelKey)}
               </Text>
             </Pressable>
           );
         })}
       </ScrollView>
 
-      {/* Source error banner */}
       {sourceError && !loading && (
         <View style={[styles.errorBanner, { backgroundColor: colors.card, borderColor: "rgba(239,68,68,0.35)" }]}>
           <Ionicons name="warning-outline" size={16} color="#ef4444" />
           <Text style={[styles.errorText, { color: colors.foreground }]} numberOfLines={3}>
             {sourceError}
           </Text>
-          <Pressable onPress={() => { setSourceError(null); setPage(0); doSearch(query, 0, true); }}>
+          <Pressable onPress={retry}>
             <Ionicons name="refresh" size={16} color={colors.primary} />
           </Pressable>
         </View>
       )}
 
-      {/* Results */}
       <FlatList
         data={results}
         keyExtractor={(item) => item.id}
-        numColumns={numColumns}
-        key={numColumns}
+        numColumns={3}
         contentContainerStyle={[
           styles.grid,
           { paddingBottom: 100 + (Platform.OS === "web" ? 34 : insets.bottom) },
@@ -222,8 +250,13 @@ export default function ExploreScreen() {
             <View style={styles.center}>
               <Ionicons name="search-outline" size={48} color={colors.mutedForeground} />
               <Text style={[styles.emptyText, { color: colors.mutedForeground }]}>
-                {query ? t("explore.noResults") : t("explore.title")}
+                {query || activeCategory !== "all" ? t("explore.noResults") : t("explore.title")}
               </Text>
+              {activeCategory !== "all" && (
+                <Text style={[styles.categoryHint, { color: colors.mutedForeground }]}>
+                  {t(getCategory(activeCategory).labelKey)}
+                </Text>
+              )}
             </View>
           )
         }
@@ -255,10 +288,7 @@ export default function ExploreScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  header: {
-    paddingHorizontal: 16,
-    gap: 4,
-  },
+  header: { paddingHorizontal: 16, gap: 4 },
   searchBar: {
     flexDirection: "row",
     alignItems: "center",
@@ -267,55 +297,24 @@ const styles = StyleSheet.create({
     gap: 8,
     borderWidth: 1,
   },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    height: 44,
-  },
-  genreRow: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    gap: 8,
-    flexDirection: "row",
-  },
+  searchInput: { flex: 1, fontSize: 14, height: 44 },
+  genreRow: { paddingHorizontal: 16, paddingVertical: 10, gap: 8, flexDirection: "row" },
   genrePill: {
-    paddingHorizontal: 14,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 12,
     paddingVertical: 6,
+    gap: 5,
     borderWidth: 1,
   },
-  genreText: {
-    fontSize: 12,
-    fontWeight: "500" as const,
-  },
-  grid: {
-    paddingHorizontal: 8,
-    paddingTop: 4,
-  },
-  row: {
-    justifyContent: "flex-start",
-    gap: 8,
-    marginBottom: 8,
-    paddingHorizontal: 4,
-  },
-  cardWrapper: {
-    flex: 1,
-    maxWidth: "33.33%",
-    alignItems: "center",
-  },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 80,
-    gap: 12,
-  },
-  emptyText: {
-    fontSize: 15,
-  },
-  footer: {
-    padding: 20,
-    alignItems: "center",
-  },
+  genreText: { fontSize: 12, fontWeight: "500" as const },
+  grid: { paddingHorizontal: 8, paddingTop: 4 },
+  row: { justifyContent: "flex-start", gap: 8, marginBottom: 8, paddingHorizontal: 4 },
+  cardWrapper: { flex: 1, maxWidth: "33.33%", alignItems: "center" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center", paddingTop: 80, gap: 12 },
+  emptyText: { fontSize: 15 },
+  categoryHint: { fontSize: 12 },
+  footer: { padding: 20, alignItems: "center" },
   errorBanner: {
     flexDirection: "row",
     alignItems: "center",
@@ -327,9 +326,5 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
   },
-  errorText: {
-    flex: 1,
-    fontSize: 12,
-    lineHeight: 17,
-  },
+  errorText: { flex: 1, fontSize: 12, lineHeight: 17 },
 });

@@ -2,7 +2,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
 import { LinearGradient } from "expo-linear-gradient";
 import { router } from "expo-router";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
   FlatList,
@@ -15,12 +15,14 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { MangaCard } from "@/components/MangaCard";
+import { CategoryIcon } from "@/components/CategoryIcon";
 import { SourceSwitcher } from "@/components/SourceSwitcher";
 import SourceVerificationModal from "@/components/SourceVerificationModal";
 import { useLibrary } from "@/context/LibraryContext";
 import { useSettings } from "@/context/SettingsContext";
 import { useColors } from "@/hooks/useColors";
-import { getSource, SourceError } from "@/services/sources";
+import { ALL_SOURCES, SourceError } from "@/services/sources";
+import { MANGA_CATEGORIES } from "@/services/categories";
 import { Manga } from "@/services/sources/types";
 import { useTranslation } from "react-i18next";
 import { DirectionalIcon } from "@/components/DirectionalIcon";
@@ -86,24 +88,40 @@ export default function HomeScreen() {
   const colors = useColors();
   const { t } = useTranslation();
   const insets = useSafeAreaInsets();
-  const { activeSourceId } = useSettings();
+  const { activeSourceId, settingsReady } = useSettings();
   const { entries } = useLibrary();
   const [trending, setTrending] = useState<Manga[]>([]);
   const [latest, setLatest] = useState<Manga[]>([]);
   const [loading, setLoading] = useState(true);
   const [sourceError, setSourceError] = useState<string | null>(null);
   const [cfSource, setCfSource] = useState<{ id: string; name: string; url: string } | null>(null);
+  const requestIdRef = useRef(0);
+  const abortRef = useRef<AbortController | null>(null);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
 
   const loadSource = useCallback((sourceId: string) => {
+    if (!settingsReady) return;
+    const source = ALL_SOURCES.find((candidate) => candidate.id === sourceId);
+    if (!source) {
+      setSourceError(t("errors.network"));
+      setLoading(false);
+      return;
+    }
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+    const requestId = ++requestIdRef.current;
     setLoading(true);
     setTrending([]);
     setLatest([]);
     setSourceError(null);
-    const source = getSource(sourceId);
-    Promise.all([source.getTrending(), source.getLatestUpdates()])
+    Promise.all([
+      source.getTrending(0, controller.signal),
+      source.getLatestUpdates(0, controller.signal),
+    ])
        .then(([trendingItems, latestItems]) => {
+         if (controller.signal.aborted || requestId !== requestIdRef.current) return;
          setTrending(trendingItems);
          setLatest(latestItems);
          if (trendingItems.length === 0 && latestItems.length === 0) {
@@ -111,10 +129,10 @@ export default function HomeScreen() {
         }
       })
       .catch((err) => {
+         if (controller.signal.aborted || requestId !== requestIdRef.current) return;
         if (err instanceof SourceError) {
           if (err.type === "cloudflare") {
-            const src = getSource(sourceId);
-            setCfSource({ id: sourceId, name: src.name, url: src.baseUrl });
+             setCfSource({ id: source.id, name: source.name, url: source.baseUrl });
           } else {
             setSourceError(err.message);
           }
@@ -124,12 +142,18 @@ export default function HomeScreen() {
            setSourceError(t("errors.network"));
         }
       })
-      .finally(() => setLoading(false));
-  }, []);
+       .finally(() => {
+         if (requestId === requestIdRef.current) setLoading(false);
+       });
+  }, [settingsReady, t]);
 
   useEffect(() => {
-    loadSource(activeSourceId);
-  }, [activeSourceId, loadSource]);
+    if (settingsReady) loadSource(activeSourceId);
+  }, [activeSourceId, loadSource, settingsReady]);
+
+  useEffect(() => () => {
+    abortRef.current?.abort();
+  }, []);
 
   const reading = entries.filter((e) => e.status === "reading").slice(0, 5);
 
@@ -272,15 +296,14 @@ export default function HomeScreen() {
       {/* Popular Categories */}
       <View style={styles.section}>
          <SectionHeader title={t("home.browseGenres")} />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreList}>
-          {["Action", "Romance", "Fantasy", "Isekai", "Horror", "Comedy", "Sci-Fi", "Mystery"].map(
-            (genre) => (
+         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.genreList}>
+           {MANGA_CATEGORIES.filter((category) => category.id !== "all").map((category) => (
               <Pressable
-                key={genre}
+                 key={category.id}
                 onPress={() =>
                   router.push({
                     pathname: "/(tabs)/explore",
-                    params: { genre },
+                     params: { genre: category.id },
                   })
                 }
                 style={[
@@ -288,10 +311,12 @@ export default function HomeScreen() {
                   { borderColor: colors.border, backgroundColor: colors.card, borderRadius: 20 },
                 ]}
               >
-                <Text style={[styles.genreText, { color: colors.foreground }]}>{genre}</Text>
-              </Pressable>
-            )
-          )}
+                 <CategoryIcon name={category.icon} size="feature" />
+                 <Text style={[styles.genreText, { color: colors.foreground }]}>
+                   {t(category.labelKey)}
+                 </Text>
+               </Pressable>
+           ))}
         </ScrollView>
       </View>
     </ScrollView>

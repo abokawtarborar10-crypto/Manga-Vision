@@ -1,0 +1,546 @@
+We now have 5 important UI/functionality problems in MangaVerse that must be fixed properly.
+
+IMPORTANT:
+Do NOT apply superficial visual patches.
+Do NOT create fake interactions.
+Do NOT replace working systems with mock/demo implementations.
+Before changing anything, inspect the existing project architecture, components, shared UI components, icon system, navigation, settings/i18n implementation, Explore screen, Library/Favorites screens, source-selection logic, data fetching/cache/state management, and splash/loading screen.
+
+The goal is to identify the actual root causes and fix them at the correct architectural level.
+
+==================================================
+PROBLEM 1 — EXPLORE CATEGORY ICONS ARE MISSING OR HUGE
+==================================================
+
+When entering the Explore/Discovery screen:
+
+- Category icons sometimes do not appear at all.
+- When they do appear, they are extremely large and visually incorrect.
+- The category layout no longer looks like the intended original design.
+
+Investigate the complete category icon rendering pipeline:
+
+- category data
+- category icon component
+- icon library
+- icon name mapping
+- icon size props
+- width/height styles
+- parent container dimensions
+- flex/grid layout
+- responsive sizing
+- SVG/icon rendering
+- RTL/LTR changes
+- inherited styles
+- shared Icon component
+- any recent i18n/RTL/settings changes
+
+Determine why the icons are either missing or receiving an incorrect size.
+
+IMPORTANT:
+Do not simply hardcode a smaller size in one screen.
+
+Find the shared/root cause.
+
+If MangaVerse has a centralized Icon component, icon wrapper, CategoryCard, CategoryButton, or similar reusable component, fix the sizing contract there where appropriate.
+
+The final result must have:
+
+- every category icon visible when its category exists
+- consistent icon dimensions
+- appropriate visual hierarchy
+- no giant icons
+- no zero-size/invisible icons
+- no stretching
+- no distortion
+- correct alignment
+- correct spacing
+- consistent behavior in English and Arabic
+- correct behavior after changing language
+- no regression to other screens
+
+Do not mirror category icons simply because Arabic RTL is enabled.
+
+==================================================
+PROBLEM 2 — LIBRARY / FAVORITES / OTHER NAVIGATION ICONS ARE HUGE
+==================================================
+
+Icons in the Library, Favorites, and other major screens/navigation areas are also appearing much larger than intended.
+
+This suggests that the problem may be coming from a shared icon implementation rather than individual screens.
+
+Audit:
+
+- global Icon component
+- icon size defaults
+- icon style inheritance
+- SVG viewBox handling
+- width/height handling
+- font-based icons if used
+- React Native Image/SVG dimensions if applicable
+- navigation icons
+- tab icons
+- header icons
+- action icons
+- settings icons
+- card icons
+- RTL-related transformations
+- any global style that recently changed icon dimensions
+
+Compare the current implementation with the project's previous/original implementation if git history is available.
+
+IMPORTANT:
+Do not fix each icon manually with arbitrary numbers.
+
+Establish a consistent icon sizing system.
+
+For example, if the application has different icon roles, preserve sensible size categories such as:
+
+- navigation/tab icons
+- header icons
+- small action icons
+- category icons
+- large feature icons
+
+Use the existing design language of MangaVerse instead of inventing a completely new visual system.
+
+Most importantly:
+The original UI proportions and visual hierarchy must be restored.
+
+==================================================
+PROBLEM 3 — CATEGORY ICONS/BUTTONS DO NOT ACTUALLY WORK
+==================================================
+
+The category icons displayed in Explore are currently not reliably functional.
+
+When the user taps a category, it must perform the actual category filtering/navigation behavior intended by the application.
+
+Do NOT implement fake navigation.
+
+Trace the complete interaction:
+
+Category UI
+→ press/tap handler
+→ category ID/value
+→ Explore state
+→ filtering/query
+→ source/API request if required
+→ results
+→ UI update
+
+Determine exactly where the chain is broken.
+
+Check for:
+
+- missing onPress/onClick
+- wrong category ID
+- translated category label being incorrectly used as the identifier
+- stale category state
+- incorrect navigation parameters
+- incorrect route names
+- handler attached to the wrong component
+- pointerEvents problems
+- invisible overlay intercepting touches
+- Pressable/Touchable issues
+- RTL layout affecting hit areas
+- state updates not triggering rendering
+- filtering code not connected to the selected category
+- source-specific category incompatibility
+- asynchronous state race conditions
+
+The category's internal ID/value must remain language-independent.
+
+For example:
+
+BAD:
+Arabic translated label → used as category identifier
+
+GOOD:
+Stable category ID → translated label only for display
+
+After selecting a category:
+
+- the correct category must become active
+- the displayed content must update
+- loading state must behave correctly
+- results must correspond to the selected category
+- changing language must not reset the selected category incorrectly
+- changing source must correctly refresh category results
+- going back and returning must preserve the expected state where appropriate
+
+==================================================
+PROBLEM 4 — CHANGING THE MANHWA/MANGA SOURCE IN EXPLORE DOES NOT REFRESH CORRECTLY
+==================================================
+
+This is a functional state/data synchronization problem.
+
+When the user is inside Explore and changes the manga/manhwa source, the screen sometimes continues showing content from the previous source.
+
+Sometimes the user has to leave Explore and enter it again before the new source content appears.
+
+This must be fixed at the actual data/state lifecycle level.
+
+DO NOT solve this by forcing the user to leave and reopen the screen.
+
+DO NOT simply add an arbitrary timeout.
+
+DO NOT blindly remount the entire application.
+
+Trace the source-switching lifecycle:
+
+Source selector
+→ selected source state
+→ persisted source state if applicable
+→ Explore state
+→ query/category state
+→ API/source repository
+→ cache
+→ loading state
+→ results
+→ rendered cards
+
+Inspect:
+
+- selectedSource state
+- source ID stability
+- source object references
+- source change handlers
+- useEffect dependencies
+- React Query/SWR/custom cache keys if used
+- request cancellation
+- stale requests
+- cached results
+- pagination state
+- current category
+- search query
+- loading/error state
+- FlatList/FlashList rendering
+- list keys
+- memoization
+- stale closures
+- asynchronous race conditions
+- source-specific repositories
+- source-specific category IDs
+- any settings/i18n state accidentally included in the wrong dependencies
+
+The source must be part of the correct data identity.
+
+For example, conceptually:
+
+source A + category X
+
+must never reuse/render:
+
+source B + category X
+
+unless that data was intentionally cached for source B.
+
+When the source changes:
+
+1. Detect the new stable source ID.
+2. Invalidate/reset only the state that actually belongs to the old source.
+3. Cancel or ignore stale requests from the old source.
+4. Fetch the new source's content.
+5. Update the Explore UI immediately.
+6. Keep the Explore screen mounted.
+7. Preserve unrelated UI state where appropriate.
+8. Show a proper loading state while the new content is loading.
+9. Show a real error state if the new source fails.
+10. Render the new source's results without requiring navigation away and back.
+
+IMPORTANT:
+Do not reset the entire reader/application/navigation state.
+
+Also test source switching repeatedly:
+
+Source A → Source B
+Source B → Source C
+Source C → Source A
+
+Test both:
+
+- All/Popular/Latest/general Explore content
+- category-filtered content
+
+Also test changing language before and after changing source.
+
+==================================================
+PROBLEM 5 — REPLACE THE CURRENT SPLASH/STARTUP SCREEN
+==================================================
+
+The current startup/splash screen is not good enough and must be replaced.
+
+Use the uploaded reference image in this conversation as the visual reference for the new MangaVerse splash screen.
+
+The desired design is:
+
+- cinematic mobile splash screen
+- vertical 9:16 composition
+- minimalist dark charcoal/near-black background
+- centered bright red neon line-art open-book icon
+- the book emits sharp red glowing energy beams upward
+- faint semi-transparent red comic/manga panel frames float upward from the book
+- subtle atmospheric red glow
+- clean futuristic visual style
+- "MANGAVERSE" title positioned near the bottom center
+- red glowing typography
+- premium modern manga/webtoon application aesthetic
+- no unnecessary UI controls
+- no random decorative elements
+- no excessive animation
+- preserve the visual proportions of the provided reference
+
+The uploaded reference should be treated as the primary visual reference.
+
+If the current project already contains splash assets, inspect them first.
+
+Do not simply place the uploaded screenshot as a stretched image if the application requires a responsive/native splash implementation.
+
+Instead, determine the correct splash architecture used by this project and replace the current splash design at the correct level.
+
+The splash must:
+
+- look correct on Android phone screens
+- preserve aspect ratio
+- avoid stretching/cropping the main logo
+- work across different screen sizes
+- respect safe areas
+- have no unwanted white background
+- have no duplicated splash screens
+- not delay application startup unnecessarily
+- transition cleanly into the actual app
+
+If the project supports animated splash behavior, use subtle animation only:
+
+- soft neon glow
+- floating comic panels
+- gentle energy/light movement
+
+Do NOT create a heavy animation that delays startup.
+
+If a static splash is technically required by the current platform, create the best static implementation possible while preserving the reference design.
+
+==================================================
+CRITICAL RTL / I18N REQUIREMENT
+==================================================
+
+These problems appeared after recent internationalization/RTL work, so investigate whether the new i18n/RTL implementation caused any of them.
+
+Do NOT assume RTL is the cause without evidence.
+
+Specifically inspect whether:
+
+- global flexDirection was changed
+- row layouts were globally reversed
+- icon transforms were applied globally
+- SVG/icon components inherit RTL transformations
+- width/height styles were affected
+- text direction was mixed with layout direction
+- navigation containers were reversed
+- absolute positioning was changed
+- hit areas were moved
+- source selector state is being recreated after language changes
+- Explore components remount when language changes
+- keys depend on translated labels
+
+IMPORTANT:
+
+RTL should affect language/layout direction where appropriate, but it must NOT destroy the original visual design.
+
+Do NOT globally mirror every icon.
+
+Directional icons may need mirroring:
+
+- back
+- forward
+- next
+- previous
+- left/right arrows
+- directional chevrons
+
+Non-directional icons normally should NOT be mirrored:
+
+- search
+- settings
+- heart
+- bookmark
+- download
+- translate
+- filter
+- category symbols
+- source logos
+- decorative icons
+
+Preserve the original visual design in LTR and adapt only the elements that genuinely require RTL behavior.
+
+==================================================
+INVESTIGATION REQUIREMENT
+==================================================
+
+Before making changes, inspect the actual source code.
+
+Search the project for relevant components and logic such as:
+
+- Explore
+- Discovery
+- Categories
+- CategoryCard
+- CategoryButton
+- Icon
+- Svg
+- Library
+- Favorites
+- Navigation
+- SourceSelector
+- SourcePicker
+- MangaSource
+- selectedSource
+- sourceId
+- currentSource
+- fetch
+- query
+- cache
+- React Query/SWR/custom data hooks
+- i18n
+- RTL
+- I18nProvider
+- language
+- I18nContext
+- splash
+- loading screen
+- startup screen
+
+Inspect recent git history/diffs if available to determine what changed before these regressions appeared.
+
+Do not guess.
+
+For every problem, identify:
+
+1. Exact root cause
+2. Exact file/component responsible
+3. Exact mechanism causing the bug
+4. Why the current implementation behaves incorrectly
+5. Correct architectural fix
+
+Then implement the fixes.
+
+==================================================
+PRESERVE EXISTING FUNCTIONALITY
+==================================================
+
+Do NOT break:
+
+- manga/manhwa source integration
+- source repositories
+- manga browsing
+- chapter loading
+- reader
+- Manga mode
+- Webtoon mode
+- translation
+- Gemini integration
+- OCR/text detection
+- original-text removal/whiteout/inpainting
+- font settings
+- translation settings
+- language settings
+- Arabic RTL
+- English/French/Spanish/Chinese and other languages
+- navigation
+- library
+- favorites
+- bookmarks
+- search
+- caching
+- pagination
+- chapter state
+- scrolling behavior
+
+Do NOT reintroduce the previous image-zoom scrolling regression.
+
+The current reader scrolling behavior must remain unchanged.
+
+Do NOT reintroduce image pinch zoom/pan unless it already works correctly and is intentionally part of the current implementation.
+
+==================================================
+TESTING REQUIREMENTS
+==================================================
+
+After implementation, test the actual application, not only TypeScript compilation.
+
+Test:
+
+1. Open Explore.
+2. Verify every category icon appears.
+3. Verify category icons have correct sizes.
+4. Tap every category type and verify it actually changes the displayed content.
+5. Open Library.
+6. Open Favorites.
+7. Verify their icons have correct sizes.
+8. Switch between multiple sources without leaving Explore.
+9. Verify content immediately corresponds to the newly selected source.
+10. Switch source repeatedly.
+11. Change category after changing source.
+12. Change language English → Arabic.
+13. Change language Arabic → English.
+14. Verify icons remain correct.
+15. Verify non-directional icons are not incorrectly mirrored.
+16. Verify directional icons behave correctly.
+17. Verify Explore still works after language switching.
+18. Verify source switching still works after language switching.
+19. Restart the application.
+20. Verify selected language persists.
+21. Verify splash screen appears correctly.
+22. Verify splash transitions correctly into the application.
+23. Test different Android screen sizes/aspect ratios if possible.
+
+Also verify that navigating away and returning is NOT required to refresh the Explore source.
+
+==================================================
+IMPORTANT ANTI-PATCH RULES
+==================================================
+
+Do NOT:
+
+- hardcode random icon sizes separately in many files
+- hide broken icons
+- replace functional icons with text
+- add fake category buttons
+- force navigation reloads to hide stale source data
+- add arbitrary delays/timeouts
+- remount the entire app when source changes
+- clear all caches unnecessarily
+- use translated labels as stable IDs
+- globally apply row-reverse
+- globally mirror all icons
+- modify reader scrolling to solve Explore problems
+- remove existing functionality just to make the UI look correct
+- suppress errors
+- use mock data
+- use fake loading states
+- create duplicate navigation stacks
+- duplicate ScrollViews or major containers unnecessarily
+
+Fix the underlying architecture.
+
+==================================================
+FINAL REPORT
+==================================================
+
+When finished, provide a concise but technical report containing:
+
+1. Problem 1 root cause + files changed + fix
+2. Problem 2 root cause + files changed + fix
+3. Problem 3 root cause + files changed + fix
+4. Problem 4 root cause + files changed + fix
+5. Problem 5 implementation + files/assets changed
+6. Whether RTL/i18n caused any of these regressions
+7. Tests performed
+8. Build/typecheck/test results
+9. Any remaining warnings or unrelated pre-existing issues
+
+Do not simply say "fixed".
+
+I need the actual root causes and the exact fixes.
+
+Most importantly, preserve the current working MangaVerse functionality while restoring a clean, consistent, professional UI.

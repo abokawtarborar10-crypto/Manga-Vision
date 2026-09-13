@@ -9,6 +9,7 @@ import React, {
   useState,
 } from "react";
 import type { GeminiModel } from "@/services/geminiKeyTest";
+import { ALL_SOURCES } from "@/services/sources";
 import {
   FALLBACK_LANGUAGE,
   isAppLanguage,
@@ -412,7 +413,14 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
           await persist(APP_LANGUAGE_KEY, restoredLanguage);
         }
         if (settingsRaw) setReaderSettings(normalizeReader(JSON.parse(settingsRaw)));
-        if (sourceRaw) setActiveSourceIdState(sourceRaw);
+        const restoredSourceId =
+          sourceRaw && ALL_SOURCES.some((source) => source.id === sourceRaw)
+            ? sourceRaw
+            : "mangadex";
+        setActiveSourceIdState(restoredSourceId);
+        if (sourceRaw !== restoredSourceId) {
+          await persist(SOURCE_KEY, restoredSourceId);
+        }
         if (countRaw) setTranslationCount(parseInt(countRaw, 10) || 0);
         if (themeRaw && ["auto", "light", "dark"].includes(themeRaw)) {
           setThemeModeState(themeRaw as ThemeMode);

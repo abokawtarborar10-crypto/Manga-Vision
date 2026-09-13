@@ -33,9 +33,9 @@ export interface MangaSource {
   isEnabled: boolean;
   /** True if this source uses Cloudflare or other bot-protection that may need browser verification */
   requiresVerification?: boolean;
-  search(query: string, page?: number): Promise<Manga[]>;
-  getTrending(page?: number): Promise<Manga[]>;
-  getLatestUpdates(page?: number): Promise<Manga[]>;
+  search(query: string, page?: number, signal?: AbortSignal): Promise<Manga[]>;
+  getTrending(page?: number, signal?: AbortSignal): Promise<Manga[]>;
+  getLatestUpdates(page?: number, signal?: AbortSignal): Promise<Manga[]>;
   getMangaDetails(id: string): Promise<Manga>;
   getChapters(mangaId: string, signal?: AbortSignal): Promise<Chapter[]>;
   getChapterPages(chapterId: string, signal?: AbortSignal): Promise<string[]>;
