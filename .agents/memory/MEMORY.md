@@ -5,6 +5,7 @@
 - [Expo build port collision](expo-build-port-collision.md) — static Expo bundle builds need port 8081 free from the mockup sandbox
 - [Translation image source](translation-image-source.md) — pass the reader-resolved URI directly into native/web image-byte acquisition
 - [Expo preview startup](expo-preview-startup.md) — transient Metro startup failures must retry in the preview instead of leaving a one-shot blank 502 page
+- [EAS CLI invocation](eas-cli-invocation.md) — npm's npx eas resolves the unrelated eas package; use npx eas-cli for Expo Application Services commands
 - [Reader lifecycle stability](reader-lifecycle.md) — progress persistence must not change callback identity used by chapter-load effects
 - [RTL layout boundary](rtl-layout-boundary.md) — keep app flex layout stable; apply RTL to text and semantic directional icons, not the mounted tree
 - [Asura pagination](asura-pagination.md) — Asura series listing ignores page; use offset plus limit and keep offset in adapter cache identity
