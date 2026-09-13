@@ -40,6 +40,8 @@ export interface BridgeResponse {
   ok: boolean;
   status: number;
   body: string;
+  contentType?: string;
+  finalUrl?: string;
 }
 
 type RequestListener = (req: BridgeRequest) => void;
@@ -152,6 +154,46 @@ class WebViewBridgeService {
     return () => {
       this.statusListeners = this.statusListeners.filter((l) => l !== listener);
     };
+  }
+
+  /**
+   * Wait for the user to complete the source's browser verification.
+   *
+   * Source adapters use this after a browser challenge response. The actual
+   * request is retried by the adapter through this same WebView, so its
+   * cookies/session never need to be copied into the native HTTP client.
+   */
+  waitForVerification(sourceId: string, timeoutMs = 120_000): Promise<void> {
+    const current = this.getStatus(sourceId);
+    if (current === "verified") return Promise.resolve();
+
+    return new Promise<void>((resolve, reject) => {
+      let timer: ReturnType<typeof setTimeout> | null = null;
+      let unsubscribe: (() => void) | null = null;
+      let settled = false;
+
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        if (timer) clearTimeout(timer);
+        unsubscribe?.();
+        if (error) reject(error);
+        else resolve();
+      };
+
+      unsubscribe = this.onStatusChange((sid, status) => {
+        if (sid !== sourceId) return;
+        if (status === "verified") finish();
+      });
+
+      timer = setTimeout(() => {
+        finish(new Error(`[bridge] verification timed out for ${sourceId}`));
+      }, timeoutMs);
+
+      // The status may have changed between the initial check and listener
+      // registration.
+      if (this.getStatus(sourceId) === "verified") finish();
+    });
   }
 }
 

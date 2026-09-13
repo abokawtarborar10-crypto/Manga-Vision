@@ -1,0 +1,568 @@
+CRITICAL BUG — MANGAFIRE SOURCE CANNOT OPEN MANGA DUE TO HUMAN VERIFICATION / ANTI-BOT CHALLENGE
+
+MangaFire currently appears in the source list and manga listings can be displayed, but opening an individual manga frequently fails.
+
+Current behavior:
+
+1. User selects MangaFire.
+2. Manga/manhwa listings appear correctly.
+3. User taps a manga/manhwa.
+4. The app receives a verification / anti-bot / challenge response instead of the manga details/chapter data.
+5. The app tells the user to go to the MangaFire website for verification.
+6. Opening the website externally does NOT properly solve the problem for the app.
+7. The expected verification flow does not appear inside the app.
+8. After visiting the website, the user still cannot open the manga inside MangaVerse.
+9. Therefore MangaFire manga are effectively unusable.
+
+This must be fixed at the architecture level.
+
+IMPORTANT:
+DO NOT attempt to bypass, defeat, automate, or circumvent MangaFire/Cloudflare anti-bot protection.
+
+The correct solution is to provide a legitimate browser/WebView verification flow when the source requires human verification, preserve the resulting session where technically and legally possible, then retry the original request.
+
+==================================================
+PHASE 1 — INVESTIGATE THE CURRENT MANGAFIRE FLOW
+==================================================
+
+Before modifying anything, inspect the complete MangaFire source implementation.
+
+Find:
+
+- MangaFire source/provider/adapter
+- manga listing request
+- manga detail request
+- chapter list request
+- page/image request
+- HTTP client
+- request headers
+- User-Agent configuration
+- cookie handling
+- redirect handling
+- HTML parser
+- anti-bot/challenge detection
+- error handling
+- source repository
+- WebView/browser implementation if one exists
+- navigation to external URLs
+- source-specific cache
+- retry mechanism
+
+Trace the exact request sequence:
+
+MangaFire listing
+→ manga tap
+→ detail request
+→ HTTP response
+→ response status
+→ response Content-Type
+→ response body
+→ challenge detection
+→ current error
+→ UI
+
+Do not guess.
+
+Determine exactly what MangaFire returns when the manga detail request fails.
+
+Log during development:
+
+[MANGAFIRE_REQUEST]
+url=
+method=
+status=
+contentType=
+redirectedUrl=
+
+[MANGAFIRE_CHALLENGE]
+detected=
+challengeType=
+url=
+
+Do NOT log cookies, authorization tokens, API keys, or other secrets.
+
+==================================================
+PHASE 2 — DISTINGUISH NORMAL ERRORS FROM VERIFICATION
+==================================================
+
+The MangaFire adapter must distinguish:
+
+A. Manga not found
+B. Network failure
+C. Server error
+D. Rate limiting
+E. Cloudflare/anti-bot challenge
+F. JavaScript/browser verification page
+G. Unexpected HTML response
+H. Actual MangaFire content
+
+Do not treat every HTML response as a generic "verification required" error.
+
+Inspect:
+
+- HTTP status
+- final URL after redirects
+- response Content-Type
+- recognizable challenge markers
+- MangaFire page markers
+- Cloudflare challenge markers
+- challenge URLs
+- response body characteristics
+
+Create a clean internal result such as:
+
+VerificationRequired
+
+instead of throwing a generic exception.
+
+==================================================
+PHASE 3 — CREATE A REAL IN-APP VERIFICATION FLOW
+==================================================
+
+When MangaFire requires human verification, DO NOT simply tell the user:
+
+"Go to MangaFire website."
+
+Instead:
+
+Open a dedicated in-app verification screen/modal using the project's existing supported browser/WebView architecture.
+
+The flow should conceptually be:
+
+User taps Manga
+        ↓
+MangaFire request
+        ↓
+VerificationRequired detected
+        ↓
+Open MangaFire verification page
+        ↓
+User completes the legitimate verification if required
+        ↓
+Verification succeeds
+        ↓
+Return to MangaVerse
+        ↓
+Retry the original manga request
+        ↓
+Open manga details normally
+
+The verification UI should clearly tell the user:
+
+"MangaFire requires a quick browser verification before this manga can be opened."
+
+Provide:
+
+- verification WebView/browser area
+- loading indicator
+- close/cancel button
+- retry button if necessary
+- clear status
+- automatic detection of successful navigation when possible
+- return to the original manga after verification
+
+Do not require the user to manually leave the application.
+
+==================================================
+PHASE 4 — WEBVIEW COMPATIBILITY
+==================================================
+
+If a WebView is used, inspect its actual configuration.
+
+Ensure that the verification environment supports the requirements needed by the source's legitimate challenge flow, including where supported:
+
+- JavaScript enabled
+- DOM storage enabled
+- cookies enabled
+- third-party cookies if required by the WebView/platform
+- redirects
+- HTTPS
+- modern User-Agent
+- required challenge resources
+- normal navigation
+- JavaScript execution
+
+Do NOT spoof a fake browser identity.
+
+Use a normal modern mobile browser/WebView User-Agent compatible with the actual platform.
+
+Do NOT disable TLS/security validation.
+
+Do NOT intercept or rewrite challenge scripts.
+
+Do NOT inject scripts intended to defeat the verification.
+
+==================================================
+PHASE 5 — SESSION / COOKIE HANDLING
+==================================================
+
+Investigate whether the verification session established in the WebView can legitimately be reused by the MangaFire HTTP client.
+
+The important problem is:
+
+WebView/browser session
+≠
+API HTTP client session
+
+If the project architecture permits safe and supported cookie sharing, synchronize the relevant MangaFire session state so that subsequent requests use the same authenticated/verified browser session.
+
+Do NOT copy arbitrary cookies into unrelated domains.
+
+Do NOT expose cookies to logs.
+
+Do NOT store sensitive session data insecurely.
+
+Do NOT assume a Cloudflare clearance cookie can simply be copied between different devices or environments.
+
+If cookie sharing is not reliable/supported by the current architecture, use the verified browser/WebView session for the MangaFire requests that require browser context rather than pretending the HTTP client has been verified.
+
+The important requirement is:
+
+verification must actually affect the subsequent MangaFire request path.
+
+==================================================
+PHASE 6 — DO NOT CLOSE THE VERIFICATION TOO EARLY
+==================================================
+
+A major possible bug is that the app opens the verification page and immediately closes it or considers verification complete before the challenge actually succeeds.
+
+Do NOT use:
+
+- arbitrary timers
+- "wait 3 seconds"
+- assume navigation = verification success
+- assume HTTP 200 = verification success
+
+Determine successful verification using a reliable signal available to the browser/session.
+
+Only then:
+
+1. close verification UI
+2. retry the original request
+
+If verification fails:
+
+- keep the verification UI visible
+- explain that verification has not completed
+- provide Retry
+- do not silently fail
+
+==================================================
+PHASE 7 — RETRY THE ORIGINAL MANGA REQUEST
+==================================================
+
+The user should NOT have to manually search for the manga again.
+
+Preserve the original request context:
+
+- source ID
+- manga ID
+- manga URL
+- title
+- route
+- query parameters if needed
+
+Flow:
+
+open manga
+→ challenge
+→ verify
+→ return
+→ automatically retry exact manga request
+→ display manga details
+
+Prevent duplicate concurrent retries.
+
+Use a clear state machine such as:
+
+idle
+→ requesting
+→ verificationRequired
+→ verifying
+→ verified
+→ retrying
+→ success
+
+or the equivalent architecture already used by the project.
+
+==================================================
+PHASE 8 — HANDLE VERIFICATION LOOPS
+==================================================
+
+If verification repeatedly returns another challenge:
+
+DO NOT create an infinite retry loop.
+
+For example:
+
+request
+→ challenge
+→ verify
+→ request
+→ challenge
+→ verify
+→ request
+→ challenge
+
+must eventually stop and show:
+
+"MangaFire verification could not be completed in this environment."
+
+Provide:
+
+- Retry verification
+- Open in system browser
+- Cancel
+
+The app must not continuously reload the page.
+
+Cloudflare documentation notes that challenge loops can be caused by browser configuration, JavaScript, unsupported/embedded browser environments, network conditions, or bot-detection signals. Therefore diagnose the actual WebView environment instead of adding arbitrary retries.
+
+==================================================
+PHASE 9 — SYSTEM BROWSER FALLBACK
+==================================================
+
+If the current Android WebView cannot reliably complete MangaFire verification, provide a proper fallback:
+
+"Open in browser"
+
+This should open the exact MangaFire verification/manga URL in the system browser.
+
+After the user returns to MangaVerse, the app should clearly determine whether it can continue using the verified session.
+
+Do NOT falsely tell the user verification succeeded if the app cannot access the resulting browser session.
+
+If system-browser verification cannot be shared with the app's HTTP client, explain this clearly and keep the MangaFire browser fallback available.
+
+==================================================
+PHASE 10 — SOURCE ARCHITECTURE
+==================================================
+
+Prefer a reusable verification abstraction rather than hardcoding a random MangaFire popup.
+
+For example:
+
+SourceAccessRequirement:
+- Normal
+- HumanVerificationRequired
+- LoginRequired
+- Unsupported
+
+or an equivalent architecture.
+
+MangaFire can then declare:
+
+requiresBrowserVerification = true
+
+when appropriate.
+
+Do NOT force every source through the MangaFire verification flow.
+
+Other sources must continue using their existing HTTP/API implementations.
+
+==================================================
+PHASE 11 — MANGAFIRE DETAILS AND CHAPTERS
+==================================================
+
+After verification succeeds, test the entire MangaFire flow:
+
+Manga list
+→ manga details
+→ chapter list
+→ chapter selection
+→ reader/page loading
+
+Do not stop after making the details page open.
+
+If the chapter/image endpoints also require verification, the same legitimate browser-session strategy must be considered.
+
+Identify which requests require browser verification.
+
+Do NOT assume only the first detail request is protected.
+
+==================================================
+PHASE 12 — ERROR UI
+==================================================
+
+Replace the current misleading error:
+
+"Go to website to verify"
+
+with a proper application flow.
+
+When verification is required:
+
+Show an in-app modal/screen such as:
+
+"MangaFire Verification Required"
+
+"To open this manga, MangaFire requires a quick browser verification."
+
+[Verify Now]
+
+[Cancel]
+
+During verification:
+
+"Waiting for MangaFire verification..."
+
+After success:
+
+"Verification complete. Opening manga..."
+
+If verification fails:
+
+"Verification could not be completed."
+
+[Retry]
+
+[Open in Browser]
+
+Do not expose technical Cloudflare errors to normal users.
+
+Keep technical diagnostics available only in development logs.
+
+==================================================
+PHASE 13 — DO NOT BREAK OTHER MANGAVERSE FEATURES
+==================================================
+
+Do NOT modify unrelated systems.
+
+Preserve:
+
+- Explore
+- source switching
+- Asoura pagination
+- Library
+- Favorites
+- Search
+- categories
+- Manga mode
+- Webtoon mode
+- reader scrolling
+- translation
+- Gemini
+- OCR
+- whiteout/inpainting
+- language system
+- Arabic RTL
+- icon system
+- splash screen
+- chapter state
+- caching
+
+Especially do NOT reintroduce the previous reader scrolling regression.
+
+==================================================
+PHASE 14 — TESTING
+==================================================
+
+Test MangaFire from a clean session.
+
+TEST 1:
+Open MangaFire → open manga.
+
+Expected:
+If verification is required, the in-app verification UI appears.
+
+TEST 2:
+Complete verification.
+
+Expected:
+Verification UI closes only after actual successful verification.
+
+TEST 3:
+After verification.
+
+Expected:
+The original manga automatically opens without the user searching again.
+
+TEST 4:
+Open another MangaFire manga.
+
+Expected:
+If the session remains valid, no unnecessary verification should be requested again.
+
+TEST 5:
+Restart the application.
+
+Determine whether the verification session is still valid according to the actual supported cookie/session behavior.
+
+TEST 6:
+Verification fails.
+
+Expected:
+No infinite loop.
+Clear error.
+Retry available.
+Browser fallback available.
+
+TEST 7:
+Cancel verification.
+
+Expected:
+Return cleanly to MangaFire/manga list without corrupting navigation state.
+
+TEST 8:
+Switch:
+
+MangaFire → Asoura → MangaFire
+
+Expected:
+Each source retains its own source/session behavior.
+
+TEST 9:
+Open MangaFire chapter after successful verification.
+
+Expected:
+Chapter list and reader work normally.
+
+TEST 10:
+Test on Android.
+
+Pay special attention to WebView behavior, JavaScript, cookies, DOM storage, redirects, and challenge resources.
+
+==================================================
+SECURITY / ETHICAL CONSTRAINT
+==================================================
+
+Do NOT:
+
+- bypass CAPTCHA
+- solve CAPTCHA programmatically
+- spoof challenge tokens
+- forge Cloudflare cookies
+- steal/reuse another user's clearance
+- disable anti-bot checks
+- inject scripts to defeat verification
+- use CAPTCHA-solving services
+- impersonate a verified browser
+- hardcode a verification cookie
+- hide challenge responses and pretend success
+
+The goal is legitimate HUMAN VERIFICATION inside a compatible browser/WebView environment and correct session handling afterward.
+
+==================================================
+FINAL REPORT
+==================================================
+
+When finished, report:
+
+1. Exact root cause.
+2. What MangaFire returns when the request fails.
+3. Whether the issue is Cloudflare/anti-bot, MangaFire's own verification, rate limiting, or another mechanism.
+4. Which request actually triggers verification.
+5. Which component currently handles that response.
+6. Why the existing "go to website" solution does not help the app.
+7. How the new in-app verification flow works.
+8. How the verified session is reused, if technically supported.
+9. How verification success is detected.
+10. How the original manga request is retried.
+11. Files/components changed.
+12. Android/WebView settings changed.
+13. Tests performed.
+14. Any remaining platform limitations.
+
+DO NOT simply report "fixed".
+
+I need the actual root cause and a technically correct verification/session flow.

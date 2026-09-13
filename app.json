@@ -1,0 +1,12 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "d1727e60-bfc9-4083-910b-a5ea673b4feb"
+      }
+    },
+    "android": {
+      "package": "com.freem.mangaverse"
+    }
+  }
+}

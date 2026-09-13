@@ -1,5 +1,7 @@
+import { Platform } from "react-native";
 import { Chapter, Manga, MangaSource } from "./types";
 import { proxiedFetch, SourceError } from "./fetchClient";
+import { webViewBridge } from "../webViewBridge";
 
 const SITE_URL = "https://mangafire.to";
 
@@ -38,33 +40,96 @@ const API_OPTS = {
 };
 
 function isCloudflarePage(html: string): boolean {
-  return /just a moment|checking your browser|cf-browser-verification|challenge-form|attention required/i.test(html);
+  return /just a moment|checking your browser|cf-browser-verification|challenge-form|challenge-running|attention required|cloudflare_challenge|cf-mitigated|verification required/i.test(html);
 }
 
 /**
  * Fetch a MangaFire `/api/*` JSON endpoint through the shared proxy/session
  * layer (proxied on web for CORS, direct on native).
  */
-async function mfApiFetch<T>(path: string, query = ""): Promise<T> {
-  const res = await proxiedFetch("mangafire", `/api${path}`, query, API_OPTS);
-  const text = await res.text();
-
-  if (isCloudflarePage(text)) {
-    throw new SourceError(
-      "MangaFire API blocked by Cloudflare verification.",
-      "cloudflare",
-      res.status,
-      "mangafire",
-    );
-  }
+async function mfApiFetch<T>(
+  path: string,
+  query = "",
+  signal?: AbortSignal,
+  verificationAttempt = 0,
+): Promise<T> {
+  const url = `${SITE_URL}/api${path}${query}`;
+  let status = 0;
+  let text = "";
+  let contentType = "";
+  let finalUrl = url;
 
   try {
+    if (Platform.OS !== "web") {
+      // Native requests must stay inside the persistent WebView. A native
+      // fetch cannot see the WebView's browser session after verification.
+      const response = await webViewBridge.fetch("mangafire", url, {
+        headers: API_OPTS.headers,
+        timeoutMs: API_OPTS.timeoutMs,
+      });
+      status = response.status;
+      text = response.body;
+      contentType = response.contentType ?? "";
+      finalUrl = response.finalUrl ?? url;
+    } else {
+      const res = await proxiedFetch(
+        "mangafire",
+        `/api${path}`,
+        query,
+        API_OPTS,
+        signal ? { signal } : undefined,
+      );
+      status = res.status;
+      text = await res.text();
+      contentType = res.headers.get("content-type") ?? "";
+      finalUrl = res.url || url;
+    }
+
+    if (__DEV__) {
+      console.log(
+        `[MANGAFIRE_REQUEST] url=${url} method=GET status=${status} contentType=${contentType || "unknown"} redirectedUrl=${finalUrl}`,
+      );
+    }
+
+    if (isCloudflarePage(text) || status === 403 || status === 503) {
+      if (__DEV__) {
+        console.warn(
+          `[MANGAFIRE_CHALLENGE] detected=true challengeType=browser-verification url=${finalUrl}`,
+        );
+      }
+
+      if (Platform.OS !== "web" && verificationAttempt < 2) {
+        try {
+          await webViewBridge.waitForVerification("mangafire");
+          return mfApiFetch<T>(path, query, signal, verificationAttempt + 1);
+        } catch {
+          throw new SourceError(
+            "MangaFire verification could not be completed in this environment.",
+            "cloudflare",
+            status || 403,
+            "mangafire",
+          );
+        }
+      }
+
+      throw new SourceError(
+        "MangaFire requires browser verification before this content can load.",
+        "cloudflare",
+        status || 403,
+        "mangafire",
+      );
+    }
+
     return JSON.parse(text) as T;
   } catch {
+    if (Platform.OS !== "web" && verificationAttempt < 2 && /browser verification required|cf blocked/i.test(String((arguments as unknown as { [key: number]: unknown })[0]))) {
+      await webViewBridge.waitForVerification("mangafire");
+      return mfApiFetch<T>(path, query, signal, verificationAttempt + 1);
+    }
     throw new SourceError(
       `MangaFire: invalid JSON from /api${path}`,
-      "upstream",
-      res.status,
+      status >= 500 ? "upstream" : "parse",
+      status,
       "mangafire",
     );
   }
@@ -216,7 +281,7 @@ export const mangafireSource: MangaSource = {
   name: "MangaFire",
   baseUrl: SITE_URL,
   isEnabled: true,
-  requiresVerification: false,
+  requiresVerification: true,
 
   async getTrending(page = 0): Promise<Manga[]> {
     try {
@@ -266,15 +331,21 @@ export const mangafireSource: MangaSource = {
       return mapDetail(json.data);
     } catch (err) {
       if (err instanceof SourceError) throw err;
-      return { id, title: id, coverUrl: "", sourceId: "mangafire" };
+      throw new SourceError(
+        `MangaFire manga details failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        "network",
+        undefined,
+        "mangafire",
+      );
     }
   },
 
-  async getChapters(mangaId: string): Promise<Chapter[]> {
+  async getChapters(mangaId: string, signal?: AbortSignal): Promise<Chapter[]> {
     try {
       const json = await mfApiFetch<MfChapterListResponse>(
         `/titles/${encodeURIComponent(mangaId)}/chapters`,
         "?lang=en",
+        signal,
       );
       let items = json.items ?? [];
       // Some titles only have chapters in non-English languages; fall back
@@ -282,24 +353,40 @@ export const mangafireSource: MangaSource = {
       if (items.length === 0) {
         const all = await mfApiFetch<MfChapterListResponse>(
           `/titles/${encodeURIComponent(mangaId)}/chapters`,
+          "",
+          signal,
         );
         items = all.items ?? [];
       }
       return items.map(mapChapter);
     } catch (err) {
       if (err instanceof SourceError) throw err;
-      return [];
+      throw new SourceError(
+        `MangaFire chapters failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        "network",
+        undefined,
+        "mangafire",
+      );
     }
   },
 
-  async getChapterPages(chapterId: string): Promise<string[]> {
+  async getChapterPages(chapterId: string, signal?: AbortSignal): Promise<string[]> {
     try {
-      const json = await mfApiFetch<MfChapterDetailResponse>(`/chapters/${encodeURIComponent(chapterId)}`);
+      const json = await mfApiFetch<MfChapterDetailResponse>(
+        `/chapters/${encodeURIComponent(chapterId)}`,
+        "",
+        signal,
+      );
       const pages = json.data?.pages ?? [];
       return pages.map((p) => p.url).filter((u): u is string => !!u);
     } catch (err) {
       if (err instanceof SourceError) throw err;
-      return [];
+      throw new SourceError(
+        `MangaFire chapter pages failed: ${err instanceof Error ? err.message : "unknown error"}`,
+        "network",
+        undefined,
+        "mangafire",
+      );
     }
   },
 };

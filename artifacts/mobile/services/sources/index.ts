@@ -61,10 +61,10 @@ SourceRegistry.registerAll([
     meta: {
       language: "en",
       nsfw: false,
-      requiresVerification: false,
+      requiresVerification: true,
       isEnabled: true,
       hasOfficialApi: true,
-      tags: ["api", "aggregator"],
+      tags: ["api", "aggregator", "browser-verification"],
       websiteUrl: "https://mangafire.to",
     },
   },

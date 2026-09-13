@@ -23,7 +23,6 @@ import React, {
 } from "react";
 import { Platform, StyleSheet, View } from "react-native";
 import WebView from "react-native-webview";
-import { sessionStore } from "@/services/sessionStore";
 import {
   BridgeRequest,
   BridgeSourceStatus,
@@ -39,6 +38,10 @@ import {
 // saturates HTTP connections, fires SESSION_JS every 1.5 s on the JS thread,
 // and causes double BridgeContext re-renders on every page load.
 const BRIDGE_SOURCES = [
+  // MangaFire's API can return a browser challenge for detail/chapter
+  // requests even when listing requests succeed. Keep those requests inside
+  // the same browser session that completes verification.
+  { id: "mangafire", baseUrl: "https://mangafire.to" },
   // Bato.to: Next.js SSR + Cloudflare. Chapter images need an active CF session.
   { id: "bato", baseUrl: "https://bato.to" },
 ] as const;
@@ -70,9 +73,7 @@ const SESSION_JS = `(function(){
       var isCF=/just a moment|checking your browser|cloudflare/i.test(document.title)||
         !!document.querySelector('#cf-browser-verification,#challenge-form,#challenge-running,.cf-browser-verification,.hcaptcha-box,[data-translate="checking_browser"]');
       window.ReactNativeWebView.postMessage(JSON.stringify({
-        __session:true,isCF:isCF,
-        hasCFClearance:document.cookie.indexOf('cf_clearance')>=0,
-        cookies:document.cookie,title:document.title
+         __session:true,isCF:isCF,title:document.title,url:location.href
       }));
     }catch(e){}
   }
@@ -81,6 +82,14 @@ const SESSION_JS = `(function(){
   window.addEventListener('unload',function(){clearInterval(iv);});
   true;
 })();`;
+
+function isVerificationChallenge(body: string, status: number): boolean {
+  return (
+    status === 403 ||
+    status === 503 ||
+    /just a moment|checking your browser|cf-browser-verification|challenge-form|challenge-running|attention required|cloudflare_challenge|cf-mitigated|verification required/i.test(body)
+  );
+}
 
 // ── Per-request JS builders ───────────────────────────────────────────────
 
@@ -116,6 +125,7 @@ interface SourceMutable {
   wasRendered: boolean;     // true when currentReq was extractRendered
   baseUrl: string;
   currentUri: string;       // tracks the URI we last navigated to
+  challengeUri: string;     // exact URL that returned the browser challenge
   webViewRef: React.RefObject<WebView | null>;
   /** Timer ID for debounced back-navigation. Cancelled when a new request arrives. */
   navigateBackTimer: ReturnType<typeof setTimeout> | null;
@@ -159,6 +169,7 @@ export default function GlobalWebViewBridge({
         wasRendered: false,
         baseUrl: s.baseUrl,
         currentUri: s.baseUrl,
+        challengeUri: s.baseUrl,
         webViewRef: React.createRef<WebView | null>(),
         navigateBackTimer: null,
       };
@@ -269,26 +280,19 @@ export default function GlobalWebViewBridge({
       // ── CF session report ──────────────────────────────────────────────────
       if (msg.__session) {
         const isCF = Boolean(msg.isCF);
-        const hasCF = Boolean(msg.hasCFClearance);
-        const cookies = typeof msg.cookies === "string" ? msg.cookies : "";
 
         if (isCF && !m.cfChallenge) {
           m.cfChallenge = true;
           setSourceStatus(sid, "cf_challenge");
           console.log(`[bridge:${sid}] CF challenge detected — verification needed`);
-        } else if (!isCF && m.cfChallenge && hasCF) {
+        } else if (!isCF && m.cfChallenge) {
           // CF just solved!
           m.cfChallenge = false;
           setVisibleSource(null);
           console.log(`[bridge:${sid}] CF solved — session established`);
 
-          // Persist non-HttpOnly cookies so fetch()-based requests can use them
-          if (cookies) {
-            const parsed = sessionStore.parseCookieHeader(cookies);
-            sessionStore.setSession(sid, parsed).catch(() => {});
-          }
-
-          // Reject any in-flight request (caller will retry)
+          // The browser session stays inside this WebView. Do not copy or log
+          // cookies; adapters retry through this same browser context.
           if (m.currentReq && m.processing) {
             webViewBridge.reject(m.currentReq.id, "CF solved — please retry");
             m.currentReq = null;
@@ -310,7 +314,13 @@ export default function GlobalWebViewBridge({
         const body = String(msg.body ?? "");
         const error = typeof msg.error === "string" ? msg.error : undefined;
 
-        if (ok) {
+        if (isVerificationChallenge(body, status)) {
+          m.cfChallenge = true;
+          m.challengeUri = m.currentReq?.url ?? m.baseUrl;
+          setSourceStatus(sid, "cf_challenge");
+          console.log(`[bridge:${sid}] browser challenge response detected`);
+          webViewBridge.reject(id, "Browser verification required");
+        } else if (ok) {
           webViewBridge.resolve(id, { ok: true, status, body });
         } else if ((status === 403 || status === 503) && !m.cfChallenge) {
           // Inline fetch got blocked — CF might have challenged
@@ -385,6 +395,11 @@ export default function GlobalWebViewBridge({
   // ── Context actions ───────────────────────────────────────────────────────
 
   const showVerification = useCallback((sid: string) => {
+    const m = mut.current[sid];
+    if (m?.challengeUri && m.currentUri !== m.challengeUri) {
+      m.currentUri = m.challengeUri;
+      setUris((prev) => ({ ...prev, [sid]: m.challengeUri }));
+    }
     setVisibleSource(sid);
   }, []);
 
