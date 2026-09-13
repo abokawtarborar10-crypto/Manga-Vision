@@ -94,9 +94,9 @@ export abstract class BaseAdapter implements MangaSource {
 
   // ── Abstract data methods ────────────────────────────────────────────────────
 
-  abstract search(query: string, page?: number): Promise<Manga[]>;
-  abstract getTrending(page?: number): Promise<Manga[]>;
-  abstract getLatestUpdates(page?: number): Promise<Manga[]>;
+  abstract search(query: string, page?: number, signal?: AbortSignal): Promise<Manga[]>;
+  abstract getTrending(page?: number, signal?: AbortSignal): Promise<Manga[]>;
+  abstract getLatestUpdates(page?: number, signal?: AbortSignal): Promise<Manga[]>;
   abstract getMangaDetails(id: string): Promise<Manga>;
   abstract getChapters(mangaId: string, signal?: AbortSignal): Promise<Chapter[]>;
   abstract getChapterPages(chapterId: string, signal?: AbortSignal): Promise<string[]>;

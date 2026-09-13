@@ -71,6 +71,7 @@ export interface AsuraSeriesListResponse {
     last_page?: number;
     per_page?: number;
     total?: number;
+    has_more?: boolean;
   };
 }
 
@@ -84,7 +85,11 @@ export interface AsuraSeriesDetailResponse {
 // ── Search endpoint — GET /api/search?q={query} ───────────────────────────
 
 export interface AsuraSearchResponse {
-  data: AsuraSeries[];
+  data: AsuraSeries[] | null;
+  meta?: {
+    total?: number;
+    per_page?: number;
+  };
 }
 
 // ── Chapter list endpoint — GET /api/series/{slug}/chapters ───────────────

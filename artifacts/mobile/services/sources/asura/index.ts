@@ -48,6 +48,7 @@ const API_URL  = "https://api.asurascans.com";
  * e.g. public_url = "/comics/solo-leveling-ragnarok-a80d257e"
  */
 const PUBLIC_URL_SUFFIX = "-a80d257e";
+const SERIES_PAGE_SIZE = 20;
 
 /** Cache TTLs (ms). */
 const TTL = { trending: 120_000, latest: 60_000, search: 300_000, detail: 300_000, chapters: 180_000 } as const;
@@ -166,18 +167,24 @@ export class AsuraAdapter extends BaseAdapter {
 
   // ── MangaSource methods ────────────────────────────────────────────────────
 
-  async getTrending(page = 0): Promise<Manga[]> {
-    const cacheKey = `trending:${page}`;
+  async getTrending(page = 0, signal?: AbortSignal): Promise<Manga[]> {
+    const offset = page * SERIES_PAGE_SIZE;
+    const cacheKey = `trending:rating:${offset}:${SERIES_PAGE_SIZE}`;
     const cached = this.cache.get<Manga[]>(cacheKey);
     if (cached) return cached;
 
     try {
       const data = await this.http.getJson<AsuraSeriesListResponse>(
-        `/api/series?page=${page + 1}&order=rating`,
+        `/api/series?offset=${offset}&limit=${SERIES_PAGE_SIZE}&order=rating`,
+        { signal },
       );
       const results = (data.data ?? []).map((s) => this.mapSeries(s));
       this.cache.set(cacheKey, results, TTL.trending);
-      this.log.log(`getTrending(page=${page}) → ${results.length} series`);
+      this.log.log(
+        `[ASOURA_PAGINATION] endpoint=series order=rating page=${page} offset=${offset} ` +
+        `resultCount=${results.length} firstMangaId=${results[0]?.id ?? "-"} ` +
+        `lastMangaId=${results[results.length - 1]?.id ?? "-"} hasNextPage=${data.meta?.has_more ?? results.length === SERIES_PAGE_SIZE}`,
+      );
       return results;
     } catch (err) {
       if (err instanceof SourceError) throw err;
@@ -185,18 +192,24 @@ export class AsuraAdapter extends BaseAdapter {
     }
   }
 
-  async getLatestUpdates(page = 0): Promise<Manga[]> {
-    const cacheKey = `latest:${page}`;
+  async getLatestUpdates(page = 0, signal?: AbortSignal): Promise<Manga[]> {
+    const offset = page * SERIES_PAGE_SIZE;
+    const cacheKey = `latest:update:${offset}:${SERIES_PAGE_SIZE}`;
     const cached = this.cache.get<Manga[]>(cacheKey);
     if (cached) return cached;
 
     try {
       const data = await this.http.getJson<AsuraSeriesListResponse>(
-        `/api/series?page=${page + 1}&order=update`,
+        `/api/series?offset=${offset}&limit=${SERIES_PAGE_SIZE}&order=update`,
+        { signal },
       );
       const results = (data.data ?? []).map((s) => this.mapSeries(s));
       this.cache.set(cacheKey, results, TTL.latest);
-      this.log.log(`getLatestUpdates(page=${page}) → ${results.length} series`);
+      this.log.log(
+        `[ASOURA_PAGINATION] endpoint=series order=update page=${page} offset=${offset} ` +
+        `resultCount=${results.length} firstMangaId=${results[0]?.id ?? "-"} ` +
+        `lastMangaId=${results[results.length - 1]?.id ?? "-"} hasNextPage=${data.meta?.has_more ?? results.length === SERIES_PAGE_SIZE}`,
+      );
       return results;
     } catch (err) {
       if (err instanceof SourceError) throw err;
@@ -204,17 +217,25 @@ export class AsuraAdapter extends BaseAdapter {
     }
   }
 
-  async search(query: string, page = 0): Promise<Manga[]> {
-    const cacheKey = `search:${query.toLowerCase()}:${page}`;
+  async search(query: string, page = 0, signal?: AbortSignal): Promise<Manga[]> {
+    const offset = page * SERIES_PAGE_SIZE;
+    const cacheKey = `search:${query.toLowerCase()}:${offset}:${SERIES_PAGE_SIZE}`;
     const cached = this.cache.get<Manga[]>(cacheKey);
     if (cached) return cached;
 
     try {
       const q = encodeURIComponent(query.trim());
-      const data = await this.http.getJson<AsuraSearchResponse>(`/api/search?q=${q}`);
-      const results = (data.data ?? []).map((s) => this.mapSeries(s));
+      const data = await this.http.getJson<AsuraSearchResponse>(
+        `/api/search?q=${q}&offset=${offset}&limit=${SERIES_PAGE_SIZE}`,
+        { signal },
+      );
+      const results = (Array.isArray(data.data) ? data.data : []).map((s) => this.mapSeries(s));
       this.cache.set(cacheKey, results, TTL.search);
-      this.log.log(`search("${query}") → ${results.length} results`);
+      this.log.log(
+        `[ASOURA_PAGINATION] endpoint=search query=${query} page=${page} offset=${offset} ` +
+        `resultCount=${results.length} firstMangaId=${results[0]?.id ?? "-"} ` +
+        `lastMangaId=${results[results.length - 1]?.id ?? "-"} hasNextPage=${results.length === SERIES_PAGE_SIZE}`,
+      );
       return results;
     } catch (err) {
       if (err instanceof SourceError) throw err;

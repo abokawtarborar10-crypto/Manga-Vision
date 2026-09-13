@@ -45,6 +45,7 @@ export default function ExploreScreen() {
   const [cfSource, setCfSource] = useState<{ id: string; name: string; url: string } | null>(null);
   const requestIdRef = useRef(0);
   const abortRef = useRef<AbortController | null>(null);
+  const loadingPageRef = useRef<number | null>(null);
   const queryEffectReadyRef = useRef(false);
 
   const topPadding = Platform.OS === "web" ? 67 : insets.top;
@@ -57,6 +58,7 @@ export default function ExploreScreen() {
   const fetchPage = useCallback(
     async (q: string, categoryId: MangaCategoryId, pageNum: number, reset: boolean) => {
       if (!settingsReady) return;
+      if (!reset && loadingPageRef.current === pageNum) return;
 
       const source = ALL_SOURCES.find((candidate) => candidate.id === activeSourceId);
       if (!source) {
@@ -68,6 +70,7 @@ export default function ExploreScreen() {
       const controller = new AbortController();
       abortRef.current = controller;
       const requestId = ++requestIdRef.current;
+      if (!reset) loadingPageRef.current = pageNum;
 
       setLoading(true);
       if (reset) {
@@ -106,6 +109,9 @@ export default function ExploreScreen() {
           setSourceError(t("errors.network"));
         }
       } finally {
+        if (!reset && loadingPageRef.current === pageNum) {
+          loadingPageRef.current = null;
+        }
         if (requestId === requestIdRef.current) setLoading(false);
       }
     },

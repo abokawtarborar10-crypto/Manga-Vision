@@ -1,0 +1,557 @@
+CRITICAL BUG — ASOURA SOURCE PAGINATION / INFINITE SCROLL IS BROKEN
+
+There is a specific functional bug with the Asoura manga/manhwa source.
+
+Current behavior:
+- Asoura successfully displays an initial group of manga/manhwa.
+- The first batch of results is visible.
+- When the user scrolls downward to load more results, NO genuinely new manga/manhwa appear.
+- Instead, the same manga/manhwa from the first batch appear again/re-render/repeat.
+- This happens repeatedly no matter how far the user scrolls.
+- The user should be able to continuously load the next pages of Asoura results.
+
+DO NOT treat this as a simple UI scrolling problem.
+
+The reader scrolling itself is currently working and must NOT be changed.
+
+This is specifically a SOURCE PAGINATION / DATA FETCHING / DEDUPLICATION / CACHE problem.
+
+==================================================
+FIRST: INVESTIGATE THE ACTUAL ASOURA IMPLEMENTATION
+==================================================
+
+Before modifying anything, inspect the complete Asoura source implementation.
+
+Find:
+
+- Asoura source adapter/provider
+- Asoura search implementation
+- Asoura popular/latest/browse implementation
+- page parameter handling
+- URL construction
+- request generation
+- HTML/API parsing
+- pagination detection
+- next-page detection
+- result parsing
+- manga ID extraction
+- manga URL extraction
+- pagination state
+- infinite-scroll logic
+- load-more handler
+- FlatList/FlashList onEndReached
+- React Query/SWR/custom caching if present
+- source cache keys
+- deduplication logic
+- source repository interfaces
+
+Also inspect how the other working sources implement pagination.
+
+DO NOT assume Asoura uses the same pagination mechanism as every other source.
+
+==================================================
+REPRODUCE THE BUG
+==================================================
+
+Reproduce this exact sequence:
+
+1. Select Asoura as the source.
+2. Open Explore/Discovery.
+3. Load the initial manga list.
+4. Record:
+   - source ID
+   - request URL
+   - page number
+   - number of results
+   - manga IDs
+5. Scroll to the bottom.
+6. Trigger load-more.
+7. Record the second request.
+8. Compare:
+   - requested page
+   - requested URL
+   - response URL
+   - returned manga IDs
+   - result count
+9. Scroll again.
+10. Repeat for at least 3–5 pages.
+
+Determine exactly whether:
+
+A. The same page is requested repeatedly.
+
+OR
+
+B. Different pages are requested but Asoura returns the same data.
+
+OR
+
+C. Different data is returned but the app's state/cache replaces it with the first page.
+
+OR
+
+D. Different data is returned but the UI deduplication/key logic incorrectly renders the first page again.
+
+OR
+
+E. onEndReached is firing repeatedly with page 1.
+
+OR
+
+F. the page counter is being reset to 1 after every fetch.
+
+OR
+
+G. the source state is being remounted/reset during scrolling.
+
+OR
+
+H. the cache key does not include the page number.
+
+OR
+
+I. the Asoura pagination URL/query parameter is incorrect.
+
+OR
+
+J. the Asoura HTML parser always selects the first page/results regardless of the requested page.
+
+Find the REAL cause.
+
+==================================================
+IMPORTANT — VERIFY ASOURA'S REAL PAGINATION
+==================================================
+
+Inspect the actual Asoura website/source implementation and determine how pagination really works.
+
+Do NOT blindly assume:
+
+?page=2
+
+is correct.
+
+The source may use:
+
+- ?page=2
+- /page/2/
+- /page/2
+- offset
+- start
+- AJAX/load-more endpoint
+- cursor
+- next-page URL
+- infinite scroll endpoint
+- another pagination mechanism
+
+Use the actual source implementation and existing source code to determine the correct mechanism.
+
+The adapter must request the REAL next page.
+
+==================================================
+PAGE STATE MUST BE CORRECT
+==================================================
+
+For a sequence like:
+
+page 1 → page 2 → page 3 → page 4 → page 5
+
+verify that the application actually maintains:
+
+currentPage = 1
+then
+currentPage = 2
+then
+currentPage = 3
+then
+currentPage = 4
+then
+currentPage = 5
+
+It must NOT repeatedly do:
+
+1 → 1 → 1 → 1
+
+and it must NOT accidentally do:
+
+1 → 2 → 1 → 2
+
+Check for:
+
+- setPage(1)
+- page state initialization inside render
+- effects that reset page
+- source changes triggering page reset
+- category changes triggering page reset
+- language/i18n changes triggering page reset
+- stale closures
+- asynchronous race conditions
+- component remounts
+- unstable React keys
+- changing object references
+- useEffect dependency problems
+
+==================================================
+RESULT APPENDING
+==================================================
+
+If page 1 returns:
+
+[A, B, C, D, E]
+
+and page 2 returns:
+
+[F, G, H, I, J]
+
+the final list must become:
+
+[A, B, C, D, E, F, G, H, I, J]
+
+NOT:
+
+[A, B, C, D, E, A, B, C, D, E]
+
+and NOT:
+
+[F, G, H, I, J]
+
+with page 1 disappearing.
+
+The load-more operation must APPEND new results to the existing list.
+
+It must not replace the existing list unless the user intentionally starts a completely new query/category/source.
+
+==================================================
+MANGA ID / DEDUPLICATION
+==================================================
+
+Inspect how manga IDs are generated.
+
+Every Asoura manga result must have a stable unique identifier derived from the actual source manga identity.
+
+Do NOT use:
+
+- array index
+- translated title
+- display position
+- unstable object reference
+
+as the primary identity.
+
+Deduplication must prevent accidental duplicates while allowing genuinely new manga from later pages.
+
+For example:
+
+page 1:
+manga-101
+manga-102
+manga-103
+
+page 2:
+manga-104
+manga-105
+manga-106
+
+must result in six unique items.
+
+If page 2 genuinely contains a duplicate, remove only that duplicate.
+
+Do NOT deduplicate all pages against the first page incorrectly.
+
+==================================================
+CACHE / QUERY KEY
+==================================================
+
+If the project uses React Query, SWR, custom caching, or another cache system, inspect the cache key.
+
+The data identity must correctly distinguish:
+
+Asoura + endpoint + query/category + page
+
+where page-based pagination is being used.
+
+A cache key that effectively treats:
+
+Asoura page 1
+and
+Asoura page 2
+
+as the same request can cause this exact bug.
+
+Fix the cache key at the correct level.
+
+Do not disable caching globally.
+
+Do not clear the entire cache every time the user scrolls.
+
+==================================================
+INFINITE SCROLL
+==================================================
+
+Inspect the actual load-more trigger.
+
+If using:
+
+onEndReached
+onScroll
+onMomentumScrollEnd
+IntersectionObserver
+custom infinite-scroll logic
+React Query infinite queries
+custom pagination hooks
+
+verify that it:
+
+- fires only when appropriate
+- does not repeatedly request the same page
+- increments the page correctly
+- does not reset the page
+- does not run multiple simultaneous requests for the same page
+- correctly handles loading state
+- correctly handles the end of pagination
+- correctly appends results
+
+Add a guard such as an appropriate "currently loading page" check if needed.
+
+But do NOT simply disable load-more to stop duplicates.
+
+==================================================
+ASYNC RACE CONDITIONS
+==================================================
+
+Check for this possible sequence:
+
+Request page 2
+→ request page 3 starts
+→ page 3 returns
+→ page 2 returns later
+→ stale page 2 response overwrites the list
+
+or:
+
+Request page 2
+→ component/state resets
+→ page 1 is requested again
+→ page 1 overwrites page 2
+
+Protect against stale asynchronous responses.
+
+The latest valid pagination state must win.
+
+==================================================
+COMPARE WITH A WORKING SOURCE
+==================================================
+
+Find at least one source in MangaVerse where infinite scrolling/pagination already works correctly.
+
+Compare its architecture with Asoura:
+
+- page state
+- request URL
+- result parsing
+- next-page detection
+- list append
+- cache keys
+- IDs
+- load-more trigger
+- loading guards
+- end-of-results detection
+
+Reuse the existing project's established pagination architecture where appropriate.
+
+Do NOT copy code blindly.
+
+Adapt it to Asoura's actual pagination mechanism.
+
+==================================================
+SOURCE-SPECIFIC FIX
+==================================================
+
+Prefer a source-specific fix if the bug is inside Asoura.
+
+Do NOT modify the global pagination system unless investigation proves the global system is responsible.
+
+If the global system is responsible, fix it in a backward-compatible way and verify all existing sources.
+
+==================================================
+IMPORTANT — DO NOT BREAK CURRENT FUNCTIONALITY
+==================================================
+
+Do NOT modify:
+
+- reader scrolling
+- Manga mode
+- Webtoon mode
+- image rendering
+- image translation
+- OCR/text detection
+- whiteout/inpainting
+- Gemini integration
+- language system
+- RTL layout
+- icon system
+- Library
+- Favorites
+- chapter loading
+
+unless absolutely necessary for the actual pagination fix.
+
+The current Explore source-switching behavior that was recently fixed must remain working.
+
+Also verify that changing:
+
+Asoura → another source
+another source → Asoura
+
+still correctly resets the pagination to page 1 for the NEW source.
+
+When changing source intentionally, page state SHOULD reset.
+
+When simply scrolling within Asoura, page state MUST NOT reset.
+
+==================================================
+TEST MATRIX
+==================================================
+
+After fixing, test Asoura with:
+
+1. Initial page
+2. Scroll → page 2
+3. Scroll → page 3
+4. Scroll → page 4
+5. Scroll → page 5
+
+Verify every page contains new results where the source provides them.
+
+Then test:
+
+Asoura → another source → Asoura
+
+Verify Asoura starts from page 1 once after returning to it.
+
+Then:
+
+Asoura + category
+→ page 2
+→ page 3
+
+Verify category pagination works.
+
+Then:
+
+Asoura + search
+→ page 2
+→ page 3
+
+if Asoura supports search pagination.
+
+Then:
+
+English → Arabic
+while on Asoura
+
+Verify language switching does NOT reset/reload page state incorrectly.
+
+Then:
+
+Arabic → English
+
+Verify the same.
+
+Also test rapidly scrolling to the bottom multiple times.
+
+There must not be:
+
+- duplicate requests for the same page
+- repeated page 1
+- repeated page 2
+- duplicated manga cards
+- list replacement
+- infinite reload loop
+
+==================================================
+TEMPORARY DIAGNOSTIC LOGGING
+==================================================
+
+If necessary, add temporary development logs such as:
+
+[ASOURA_PAGINATION]
+sourceId=
+endpoint=
+page=
+requestUrl=
+previousPage=
+resultCount=
+firstMangaId=
+lastMangaId=
+hasNextPage=
+
+and:
+
+[EXPLORE_LOAD_MORE]
+currentPage=
+requestedPage=
+existingResults=
+newResults=
+mergedResults=
+
+Use these logs to prove what is actually happening.
+
+Remove excessive debug logging after the fix, or keep only useful development diagnostics behind a development flag.
+
+==================================================
+FINAL VALIDATION
+==================================================
+
+Run:
+
+- TypeScript/typecheck
+- lint if available
+- API/build checks
+- relevant tests
+- actual Android/runtime test if available
+
+Most importantly, manually verify:
+
+Asoura page 1
+→ page 2
+→ page 3
+→ page 4
+→ page 5
+
+and confirm that genuinely NEW manga/manhwa are displayed.
+
+==================================================
+FINAL REPORT
+==================================================
+
+Do not simply say "fixed".
+
+Report:
+
+1. Exact root cause.
+2. Whether the problem was:
+   - page number
+   - URL construction
+   - parser
+   - next-page detection
+   - state reset
+   - cache key
+   - list merging
+   - deduplication
+   - infinite-scroll trigger
+   - async race
+   - or another cause.
+3. Exact files/components changed.
+4. Exact fix implemented.
+5. Whether the fix is Asoura-specific or global.
+6. How you verified page 1 → 2 → 3 → 4 → 5.
+7. Whether duplicate manga were eliminated correctly.
+8. Whether other sources remain unaffected.
+9. Build/test results.
+10. Any remaining issue.
+
+DO NOT hide the bug by preventing scrolling or by stopping additional requests.
+
+The required outcome is REAL Asoura pagination:
+PAGE 1 → PAGE 2 → PAGE 3 → PAGE 4 → PAGE 5,
+with genuinely new manga/manhwa appended to the existing results.
