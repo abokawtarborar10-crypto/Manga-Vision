@@ -53,3 +53,11 @@ node_modules
 /skills-lock.json
 /app.json
 /eas.json
+
+# Keep the Android build on the mobile artifact's npm lockfile.
+# The root workspace is pnpm-based for Replit development and must not be
+# visible to EAS dependency detection.
+/package.json
+/pnpm-lock.yaml
+/pnpm-workspace.yaml
+/.npmrc

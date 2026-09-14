@@ -46,8 +46,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "3caf7463-a86a-4dcb-b001-caddd4848f4e"
+        "projectId": "02d37f74-a476-4934-9a1f-4de890164966"
       }
-    }
+    },
+    "owner": "devexi"
   }
 }
