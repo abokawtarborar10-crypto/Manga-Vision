@@ -1,0 +1,55 @@
+# EAS archives the Git repository root. Keep only build-relevant files.
+
+# Version-control and installed/generated dependencies
+.git
+node_modules
+**/node_modules/
+
+# Replit/local caches and machine-specific state
+.cache/
+.local/
+.config/
+.agents/
+**/.expo/
+**/.metro/
+**/dist/
+**/build/
+**/web-build/
+**/android/
+**/ios/
+
+# Logs, editor files, and transient build metadata
+**/*.log
+**/npm-debug.*
+**/yarn-debug.*
+**/yarn-error.log
+**/*.tsbuildinfo
+**/.DS_Store
+**/Thumbs.db
+
+# Workspace artifacts unrelated to the MangaVerse Android app
+/attached_assets/
+/diagnostic-output/
+/validation-output/
+/screenshots/
+/artifacts/api-server/
+/artifacts/mockup-sandbox/
+/hf-deploy/
+/scripts/
+/diagnostic-*.mjs
+/validate-pipeline-fixes.mjs
+/artifacts/mobile/validation-output/
+/artifacts/mobile/server/
+/artifacts/mobile/scripts/
+/artifacts/mobile/validate-pipeline-fixes.mjs
+/artifacts/mobile/.replit-artifact/
+/artifacts/mobile/package.json.backup
+
+# Root-level Replit/legacy app metadata; the mobile artifact has its own config.
+/.replit
+/.replitignore
+/.replit_integration_files/
+/replit.md
+/skills-lock.json
+/app.json
+/eas.json

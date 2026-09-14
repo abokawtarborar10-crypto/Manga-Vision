@@ -1,0 +1,105 @@
+I want you to complete the Android APK build for this project using EAS Build.
+
+IMPORTANT:
+Do the entire process yourself from the Replit terminal. Do not just tell me the commands.
+
+1. Inspect the current Expo/EAS project configuration.
+
+2. Verify:
+- package.json
+- package-lock.json
+- eas.json
+- app.json / app.config.*
+- Android package name
+- Expo SDK version
+- React Native version
+- installed dependencies
+
+3. The previous EAS build failed because EAS tried to use pnpm and reported:
+
+ERR_PNPM_NO_LOCKFILE
+Cannot install with "frozen-lockfile" because pnpm-lock.yaml is absent.
+
+The project uses npm.
+
+Fix the project so EAS uses npm consistently.
+Do NOT migrate the project to pnpm.
+Do NOT create a fake pnpm-lock.yaml.
+Do NOT delete package-lock.json.
+
+4. If package.json contains a packageManager setting forcing pnpm, remove or correct it.
+
+5. Make sure package-lock.json is synchronized with package.json.
+
+Run:
+
+npm install
+
+and verify that dependency installation succeeds.
+
+6. Verify eas.json.
+
+I need an INSTALLABLE ANDROID APK, not an AAB.
+
+The preview profile must use:
+
+"distribution": "internal"
+
+and:
+
+"android": {
+  "buildType": "apk"
+}
+
+If the current preview profile does not produce APK, fix it.
+
+7. Do NOT change application functionality.
+Do NOT redesign the application.
+Do NOT remove required dependencies.
+Do NOT make unrelated code changes.
+
+8. Before starting the build, run the appropriate Expo/EAS configuration checks and fix only errors that would prevent the Android build.
+
+9. Make sure the Android application ID/package name is valid and already configured.
+Do not randomly change the package name if one is already configured.
+
+10. Make sure Android signing/keystore configuration is valid.
+If an EAS-managed Android keystore already exists, reuse it.
+Do NOT unnecessarily generate another keystore.
+
+11. After all checks pass, START THE EAS ANDROID APK BUILD YOURSELF.
+
+Use:
+
+eas build --platform android --profile preview
+
+If the installed EAS CLI is outdated, update it safely before building.
+
+12. Monitor the build until EAS returns the final build result.
+
+If the build fails:
+- Open/read the EAS build logs.
+- Identify the actual error.
+- Fix the underlying problem.
+- Retry the build.
+- Do not simply report "build failed".
+
+You may retry after fixing genuine build errors.
+
+13. IMPORTANT:
+Do not stop after configuring EAS.
+Do not stop after uploading the project.
+The task is not complete until the EAS build has successfully produced an APK.
+
+14. When the build succeeds, provide me:
+
+- Build status
+- APK download URL
+- EAS build ID
+- Android package name
+- Build profile used
+- Final APK build result
+- Any files you changed
+- Any important warnings
+
+The final result must be a successfully generated .apk that I can download and install on an Android phone.
