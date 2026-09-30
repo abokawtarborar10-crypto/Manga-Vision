@@ -28,6 +28,13 @@ export interface DetectedTextRegion {
   mask: Point[];
   /** Normalized [0,1] polygon consumed by the existing renderer/CV API. */
   polygon: Point[];
+  /** Individual normalized glyph envelopes; used as the pixel-refinement seed. */
+  glyphPolygons: Point[][];
+  /** Bubble geometry is placement context only and is never an erase mask. */
+  bubble_bbox?: Box2D;
+  bubblePolygon?: Point[];
+  bubbleType: string;
+  readingDirection: "horizontal" | "vertical";
   /** Pixel-space box on the original image. */
   pixelBox: { x: number; y: number; width: number; height: number };
   /** Pixel-space mask on the original image. */
@@ -57,6 +64,12 @@ interface RawDetectionRegion {
   box_2d?: unknown;
   box2d?: unknown;
   mask?: unknown;
+  text_polygon?: unknown;
+  glyph_polygons?: unknown;
+  bubble_bbox?: unknown;
+  bubble_polygon?: unknown;
+  bubble_type?: unknown;
+  reading_direction?: unknown;
   segmentation_mask?: unknown;
   segmentationMask?: unknown;
   polygon?: unknown;
@@ -83,9 +96,17 @@ For every separate text block, return:
 - type: speech, thought, narration, caption, sign, sfx, title, credits, or watermark
 - confidence: number from 0 to 1
 - box_2d: [ymin, xmin, ymax, xmax], normalized from 0 to 1000
-- mask: a polygon following the visible GLYPH INK only, as [x,y] points
-  normalized from 0 to 1000. Do not include speech-bubble borders, tails, or
-  unrelated artwork. Use a tight polygon with only a small anti-alias margin.
+- text_polygon: a tight polygon around ONLY the visible glyphs, as [x,y]
+  points normalized from 0 to 1000. Never return the bubble or its border here.
+- glyph_polygons: one tight polygon per separate character/glyph where legible,
+  each an array of [x,y] points normalized from 0 to 1000. Keep these small;
+  do not join separate glyphs or include the spaces between them.
+- bubble_bbox: [ymin,xmin,ymax,xmax], normalized from 0 to 1000, for dialogue
+  placement context only. Never use it as a text mask or erase boundary.
+- bubble_polygon: optional 4–12 [x,y] points tracing only the bubble outline,
+  normalized from 0 to 1000, for layout and border protection only.
+- bubble_type: speech, thought, narration, or none
+- reading_direction: horizontal or vertical
 
 Use the documented Gemini coordinate convention exactly:
 box_2d = [ymin, xmin, ymax, xmax].
@@ -103,7 +124,15 @@ Return ONLY valid JSON, with no markdown or commentary:
       "type": "speech",
       "confidence": 0.98,
       "box_2d": [100, 200, 240, 700],
-      "mask": [[240,120],[680,120],[680,220],[240,220]]
+      "text_polygon": [[240,120],[680,120],[680,220],[240,220]],
+      "glyph_polygons": [
+        [[250,130],[290,130],[290,210],[250,210]],
+        [[310,130],[350,130],[350,210],[310,210]]
+      ],
+      "bubble_bbox": [50, 100, 300, 800],
+      "bubble_polygon": [[100,50],[800,50],[820,300],[90,300]],
+      "bubble_type": "speech",
+      "reading_direction": "horizontal"
     }
   ],
   "summary": "Short detection summary"
@@ -210,6 +239,38 @@ function normalizePolygon(raw: unknown, assumeThousand = false): Point[] | null 
   return points;
 }
 
+function toThousandScale(points: Point[]): Point[] {
+  const alreadyNormalized = points.every(
+    ([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1,
+  );
+  return points.map(([x, y]) => [
+    clamp(alreadyNormalized ? x * 1000 : x, 0, 1000),
+    clamp(alreadyNormalized ? y * 1000 : y, 0, 1000),
+  ]);
+}
+
+function toUnitScale(points: Point[]): Point[] {
+  const alreadyNormalized = points.every(
+    ([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1,
+  );
+  return points.map(([x, y]) => [
+    clamp(alreadyNormalized ? x : x / 1000, 0, 1),
+    clamp(alreadyNormalized ? y : y / 1000, 0, 1),
+  ]);
+}
+
+function normalizePolygonList(raw: unknown): Point[][] {
+  if (!Array.isArray(raw)) return [];
+  const candidates =
+    raw.length > 0 && Array.isArray(raw[0]) && typeof raw[0][0] === "number"
+      ? [raw]
+      : raw;
+  return candidates
+    .map((candidate) => normalizePolygon(candidate))
+    .filter((polygon): polygon is Point[] => polygon !== null)
+    .map(toUnitScale);
+}
+
 function boxToNormalizedPolygon(box: Box2D): Point[] {
   const [ymin, xmin, ymax, xmax] = box;
   return [
@@ -269,27 +330,38 @@ export function normalizeDetection(
     const box = normalizeBox(raw.box_2d ?? raw.box2d) ?? legacyBox(raw);
     if (!box) return;
 
+    const textPolygon = normalizePolygon(
+      raw.text_polygon ?? raw.polygon,
+    );
+    const glyphPolygons = normalizePolygonList(raw.glyph_polygons);
     const explicitMask = raw.mask !== undefined ||
       raw.segmentation_mask !== undefined ||
       raw.segmentationMask !== undefined;
-    const rawMask = raw.mask ?? raw.segmentation_mask ?? raw.segmentationMask ?? raw.polygon;
+    const rawMask =
+      raw.mask ??
+      raw.segmentation_mask ??
+      raw.segmentationMask ??
+      raw.text_polygon ??
+      raw.polygon;
     const normalizedMask = normalizePolygon(
       rawMask,
       explicitMask,
     );
-    const legacyMaskIsZeroToOne = !explicitMask && normalizedMask
-      ? normalizedMask.every(([x, y]) => x >= 0 && x <= 1 && y >= 0 && y <= 1)
-      : false;
-    const candidateMask = normalizedMask
-      ? (legacyMaskIsZeroToOne
-        ? normalizedMask.map(([x, y]) => [x * 1000, y * 1000] as Point)
-        : normalizedMask)
-      : null;
+    const candidateMask = normalizedMask ? toThousandScale(normalizedMask) : null;
     const maskIsUsable = candidateMask !== null && hasUsableArea(candidateMask);
     const mask = maskIsUsable
       ? candidateMask
       : boxToNormalizedPolygon(box).map(([x, y]) => [x * 1000, y * 1000] as Point);
-    const normalizedPolygon = mask.map(([x, y]) => [x / 1000, y / 1000] as Point);
+    const normalizedPolygon = textPolygon
+      ? toUnitScale(textPolygon)
+      : mask.map(([x, y]) => [x / 1000, y / 1000] as Point);
+    const bubbleBox = normalizeBox(raw.bubble_bbox);
+    const bubbleOutline = normalizePolygon(raw.bubble_polygon);
+    const bubblePolygon = bubbleOutline
+      ? toUnitScale(bubbleOutline)
+      : bubbleBox
+        ? boxToNormalizedPolygon(bubbleBox)
+        : undefined;
     const pixelBox = boxToPixel(box, imageWidth, imageHeight);
     const pixelMask = maskToPixels(mask, imageWidth, imageHeight);
     const original = String(raw.original ?? raw.text ?? "").trim();
@@ -304,9 +376,21 @@ export function normalizeDetection(
       box_2d: box,
       mask,
       polygon: normalizedPolygon,
+      glyphPolygons,
+      ...(bubbleBox ? { bubble_bbox: bubbleBox } : {}),
+      ...(bubblePolygon ? { bubblePolygon } : {}),
+      bubbleType: String(raw.bubble_type ?? "none").toLowerCase(),
+      readingDirection:
+        String(raw.reading_direction ?? "horizontal").toLowerCase() === "vertical"
+          ? "vertical"
+          : "horizontal",
       pixelBox,
       pixelMask,
-      maskSource: maskIsUsable ? "gemini" : "box_fallback",
+      maskSource: glyphPolygons.length > 0
+        ? "glyph_polygons"
+        : maskIsUsable
+          ? "gemini"
+          : "box_fallback",
       x: pixelBox.x / imageWidth,
       y: pixelBox.y / imageHeight,
       w: pixelBox.width / imageWidth,

@@ -1,24 +1,6 @@
 /**
- * SegmentationEngine — glyph-focused ink-pixel mask builder.
- *
- * Generates a binary text-pixel mask from actual image data so that
- * InpaintingEngine can reconstruct the bubble background behind removed glyphs.
- *
- * Pipeline (per call):
- *   1. Decode RGBA via sharp → copy into OpenCV BGR → grayscale.
- *   2. For each OCR region, rasterize the tight text polygon and expand it
- *      by a small, resolution-aware pixel margin.
- *   3. Optionally union the detected ink pixels inside that expanded region.
- *      The expanded text shape is deliberately included in full: text can be
- *      white, outlined, coloured, or otherwise invisible to a dark-ink
- *      threshold, and leaving those pixels behind is worse than inpainting the
- *      small amount of background between glyphs.
- *   4. OR all per-region masks into one full-image accumulator.
- *
- * `bubblePolygon` is never used as the removal boundary. It describes the full
- * bubble for text placement and may be much larger than the text. Using it for
- * erasure was the regression that caused large/X-shaped masks and still did not
- * reliably remove decorated glyphs.
+ * Builds inpainting masks from high-contrast image pixels constrained to
+ * Gemini's text-only geometry. Bubble bounds are context/layout only.
  *
  * CRITICAL — memory safety:
  *   OpenCV WASM Mats live on the WASM heap.  `Buffer.from(mat.data.buffer,
@@ -31,13 +13,18 @@
 
 import sharp from "sharp";
 import { getCV } from "./index.js";
+import { refineTextMask } from "./TextMaskRefinement.js";
 
 export interface OcrRegion {
   /** Tight OCR polygon in normalized [0,1] image coordinates. */
   polygon?: [number, number][];
   /** Gemini segmentation polygon in normalized [0,1000] coordinates. */
   mask?: [number, number][];
+  glyphPolygons?: [number, number][][];
   bubblePolygon?: [number, number][];
+  bubble_bbox?: [number, number, number, number];
+  maskSource?: "glyph_polygons" | "gemini" | "box_fallback";
+  type?: string;
   x: number;
   y: number;
   w: number;
@@ -54,6 +41,11 @@ export interface SegmentationResult {
     normalizedPolygon: [number, number][];
     pixelBounds: { x: number; y: number; width: number; height: number };
     paddingPx: number;
+    maskPixels: number;
+    areaRatio: number;
+    maskSource: string;
+    safe: boolean;
+    skipReason?: string;
   }>;
 }
 
@@ -66,29 +58,48 @@ function clamp01(value: number): number {
   return Math.max(0, Math.min(1, Number.isFinite(value) ? value : 0));
 }
 
-function getTightPolygon(region: OcrRegion): [number, number][] {
+function getTextPolygons(region: OcrRegion): [number, number][][] {
+  if (region.glyphPolygons?.some((poly) => poly.length >= 3)) {
+    return region.glyphPolygons.filter((poly) => poly.length >= 3);
+  }
+  if (region.polygon && region.polygon.length >= 3) return [region.polygon];
   if (region.mask && region.mask.length >= 3) {
-    const maskUsesThousandScale = region.mask.some(([x, y]) => Math.abs(x) > 1 || Math.abs(y) > 1);
-    return region.mask.map(([x, y]) => [
-      clamp01(maskUsesThousandScale ? x / 1000 : x),
-      clamp01(maskUsesThousandScale ? y / 1000 : y),
-    ]);
+    const scale = region.mask.some(([x, y]) => Math.abs(x) > 1 || Math.abs(y) > 1)
+      ? 1000
+      : 1;
+    return [region.mask.map(([x, y]) => [x / scale, y / scale])];
   }
+  return [];
+}
 
-  if (region.polygon && region.polygon.length >= 3) {
-    return region.polygon.map(([x, y]) => [clamp01(x), clamp01(y)]);
-  }
+function getTextBounds(
+  region: OcrRegion,
+  polygons: [number, number][][],
+  width: number,
+  height: number,
+) {
+  const points = polygons.flat();
+  const fromPolygons = points.length > 0;
+  const minX = fromPolygons ? Math.min(...points.map(([x]) => x)) : clamp01(region.x);
+  const minY = fromPolygons ? Math.min(...points.map(([, y]) => y)) : clamp01(region.y);
+  const maxX = fromPolygons ? Math.max(...points.map(([x]) => x)) : clamp01(region.x + region.w);
+  const maxY = fromPolygons ? Math.max(...points.map(([, y]) => y)) : clamp01(region.y + region.h);
+  const x = Math.max(0, Math.min(width - 1, Math.floor(minX * width)));
+  const y = Math.max(0, Math.min(height - 1, Math.floor(minY * height)));
+  const right = Math.max(x + 1, Math.min(width, Math.ceil(maxX * width)));
+  const bottom = Math.max(y + 1, Math.min(height, Math.ceil(maxY * height)));
+  return { x, y, width: right - x, height: bottom - y };
+}
 
-  const x = clamp01(region.x);
-  const y = clamp01(region.y);
-  const w = Math.max(0, Math.min(1 - x, Number.isFinite(region.w) ? region.w : 0));
-  const h = Math.max(0, Math.min(1 - y, Number.isFinite(region.h) ? region.h : 0));
-  return [
-    [x, y],
-    [x + w, y],
-    [x + w, y + h],
-    [x, y + h],
-  ];
+function normalizedBubbleBoxArea(
+  box: [number, number, number, number] | undefined,
+  width: number,
+  height: number,
+): number | undefined {
+  if (!box) return undefined;
+  const [ymin, xmin, ymax, xmax] = box;
+  return Math.max(0, ((xmax - xmin) / 1000) * width) *
+    Math.max(0, ((ymax - ymin) / 1000) * height);
 }
 
 export async function buildTextMasks(
@@ -97,6 +108,7 @@ export async function buildTextMasks(
   options: SegmentationOptions = {},
 ): Promise<SegmentationResult> {
   const cv = getCV();
+  if (!cv) throw new Error("OpenCV is unavailable; text masking cannot run safely");
 
   const { data: rawData, info } = await sharp(imgBuf)
     .ensureAlpha()
@@ -116,20 +128,28 @@ export async function buildTextMasks(
   cv.cvtColor(rgbaMat, bgrMat, cv.COLOR_RGBA2BGR);
   rgbaMat.delete();
 
-  const grayMat = new cv.Mat();
-  cv.cvtColor(bgrMat, grayMat, cv.COLOR_BGR2GRAY);
+  // Contrast against a local background catches dark, light, and saturated
+  // lettering without assuming a white bubble or black ink.
+  const localBackground = new cv.Mat();
+  cv.GaussianBlur(bgrMat, localBackground, new cv.Size(9, 9), 0);
+  const colorDifference = new cv.Mat();
+  cv.absdiff(bgrMat, localBackground, colorDifference);
+  localBackground.delete();
   bgrMat.delete();
 
-  // Keep a thresholded ink mask as a diagnostic/quality aid. The removal
-  // boundary below is the expanded OCR shape, not this threshold, because
-  // thresholding cannot see white or outlined lettering.
-  const threshMat = new cv.Mat();
-  cv.adaptiveThreshold(
-    grayMat, threshMat, 255,
-    cv.ADAPTIVE_THRESH_GAUSSIAN_C, cv.THRESH_BINARY_INV,
-    15, 2
-  );
-  grayMat.delete();
+  const channels = new cv.MatVector();
+  cv.split(colorDifference, channels);
+  colorDifference.delete();
+  const contrastMask = cv.Mat.zeros(H, W, cv.CV_8UC1);
+  for (let channelIndex = 0; channelIndex < channels.size(); channelIndex++) {
+    const channel = channels.get(channelIndex);
+    const thresholded = new cv.Mat();
+    cv.threshold(channel, thresholded, 14, 255, cv.THRESH_BINARY);
+    cv.bitwise_or(contrastMask, thresholded, contrastMask);
+    channel.delete();
+    thresholded.delete();
+  }
+  channels.delete();
 
   const fullMask = cv.Mat.zeros(H, W, cv.CV_8UC1);
 

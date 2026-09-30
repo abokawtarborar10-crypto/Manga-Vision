@@ -1,0 +1,502 @@
+CRITICAL TASK — REBUILD THE AI TEXT CLEANING AND TRANSLATION RENDERING PIPELINE
+
+The current AI manga/manhwa whiteout system is not precise enough.
+
+CURRENT PROBLEM:
+The AI sometimes removes or whitens areas outside the actual manga text, including parts of speech bubbles and surrounding artwork. In some cases it appears to treat the entire text region, bubble, or a large bounding box as the area to erase.
+
+I do NOT want this behavior.
+
+The required behavior is:
+
+1. AI detects ONLY the actual visible text/glyphs.
+2. ONLY the pixels belonging to the original text are removed.
+3. Speech bubble borders, bubble backgrounds, artwork, characters, line art, shadows, and surrounding pixels must remain untouched.
+4. The translated text must then be rendered precisely in the original text location, inside the correct speech bubble/panel.
+5. The final result should look like a professionally translated manga page where the original text has been replaced, not where the speech bubble has been erased.
+
+IMPORTANT:
+Do not blindly patch the current implementation.
+First inspect the existing MangaVerse translation pipeline, especially the current Gemini detection, mask generation, OpenCV inpainting, coordinate conversion, translation region IDs, and translated-text rendering.
+
+Preserve all existing working features.
+
+==================================================
+PHASE 1 — TRACE THE CURRENT PIPELINE
+==================================================
+
+Inspect the complete pipeline:
+
+IMAGE
+→ IMAGE DOWNLOAD
+→ GEMINI VISION TEXT DETECTION
+→ TEXT REGION JSON
+→ COORDINATE CONVERSION
+→ TEXT MASK GENERATION
+→ WHITEOUT / INPAINTING
+→ TRANSLATION
+→ TRANSLATED TEXT LAYOUT
+→ FINAL RENDERED IMAGE
+
+Inspect the existing implementation around:
+
+- /api/detect-text
+- Gemini Vision requests
+- text region IDs such as text_001
+- normalized [ymin, xmin, ymax, xmax] coordinates
+- polygon/glyph data
+- pixel coordinate conversion
+- mask creation
+- OpenCV Telea/inpainting
+- /api/cv-pipeline
+- MangaPage
+- translated text rendering
+- any existing whiteout/erase logic
+- any existing debug visualization
+- any image processing utilities
+
+Do not remove the current architecture unless there is a proven architectural reason.
+
+==================================================
+PHASE 2 — CHANGE THE AI DETECTION MODEL
+==================================================
+
+The AI must distinguish between:
+
+A. TEXT/Glyphs
+B. Speech bubble/container
+C. Artwork/background
+
+The system must NEVER use the speech bubble polygon as the whiteout mask.
+
+The bubble is only contextual information.
+
+The actual removal mask must represent the individual characters/glyphs.
+
+For every detected text region, Gemini should return structured data similar to:
+
+{
+  "id": "text_001",
+  "text": "original text",
+  "language": "ja",
+  "type": "dialogue",
+  "confidence": 0.98,
+
+  "bbox": {
+    "ymin": 100,
+    "xmin": 200,
+    "ymax": 250,
+    "xmax": 600
+  },
+
+  "text_polygon": [
+    [x1,y1],
+    [x2,y2],
+    ...
+  ],
+
+  "bubble_bbox": {
+    "ymin": ...,
+    "xmin": ...,
+    "ymax": ...,
+    "xmax": ...
+  },
+
+  "bubble_type": "speech",
+  "reading_direction": "horizontal"
+}
+
+The critical distinction is:
+
+text_polygon = ONLY THE GLYPHS/TEXT
+
+bubble_bbox = CONTEXT ONLY
+
+Never use bubble_bbox for erasing.
+
+==================================================
+PHASE 3 — PRECISE TEXT MASKING
+==================================================
+
+Replace any logic that creates a large rectangular or bubble-sized erase mask.
+
+The mask should contain only the original glyph pixels.
+
+Preferred priority:
+
+1. Glyph/text segmentation mask if available.
+2. Text polygon tightly surrounding the actual glyphs.
+3. Tight text bounding box only as a fallback.
+
+Do NOT use:
+
+- entire speech bubble
+- entire bubble polygon
+- large padded rectangle
+- large percentage-based expansion
+- full region surrounding the text
+
+The mask should be as tight as possible around the letters.
+
+If a bounding box is used as fallback, automatically shrink/refine the mask using image analysis.
+
+For example:
+
+- detect high-contrast text pixels inside the text region
+- distinguish dark glyphs from light bubble background
+- distinguish colored glyphs from surrounding artwork
+- detect connected components where appropriate
+- remove large empty regions from the mask
+- preserve bubble outlines
+
+Do NOT assume all manga text is black.
+
+The system must support:
+
+- black text
+- white text
+- colored text
+- outlined text
+- stylized manga fonts
+- vertical Japanese text
+- horizontal text
+- narration boxes
+- sound effects
+- small text
+
+==================================================
+PHASE 4 — MASK REFINEMENT
+==================================================
+
+Implement a dedicated:
+
+refineTextMask()
+
+stage.
+
+The flow should be:
+
+AI text region
+→ initial glyph mask
+→ pixel-level refinement
+→ remove noise
+→ controlled dilation
+→ final inpainting mask
+
+Dilation must be minimal.
+
+Do NOT use aggressive dilation.
+
+The purpose of dilation is only to remove anti-aliased edges/outline pixels around the letters.
+
+Use an adaptive small dilation based on text size/resolution.
+
+For example:
+
+small text → very small dilation
+large text → slightly larger dilation
+
+Never expand the mask into the speech bubble unnecessarily.
+
+The final mask should visually cover:
+
+[ ORIGINAL GLYPH ]
+
+and perhaps a tiny anti-aliasing border,
+
+but NOT:
+
+[ ENTIRE SPEECH BUBBLE ]
+
+==================================================
+PHASE 5 — PRESERVE SPEECH BUBBLE STRUCTURE
+==================================================
+
+The following must remain untouched whenever they are not part of the actual text:
+
+- speech bubble border
+- bubble outline
+- bubble background
+- panel borders
+- manga line art
+- character faces
+- hair
+- clothes
+- shadows
+- textures
+- backgrounds
+- sound-effect graphics outside detected text
+- nearby artwork
+
+If the text touches or overlaps a bubble border, the algorithm must avoid destroying the border.
+
+Do not simply paint the region white.
+
+Use image-aware inpainting only on the exact glyph mask.
+
+For non-white backgrounds, preserve the local texture and color.
+
+For white speech bubbles, reconstruct the removed text area naturally as white.
+
+For textured/color bubbles, reconstruct from surrounding pixels.
+
+==================================================
+PHASE 6 — IMPROVE INPAINTING
+==================================================
+
+Inspect the existing OpenCV Telea implementation.
+
+Keep it if it is appropriate, but feed it the refined glyph-only mask.
+
+Do not inpaint the entire text bounding box.
+
+The inpainting radius must be small enough to prevent damage to nearby artwork.
+
+The algorithm should work correctly for:
+
+- white bubbles
+- gray bubbles
+- colored bubbles
+- textured backgrounds
+- manga screentones
+
+Add protection around important non-text edges where possible.
+
+If the current implementation has:
+
+polygon → mask → huge inpaint area
+
+replace this with:
+
+glyph detection → precise mask → minimal inpainting.
+
+==================================================
+PHASE 7 — TRANSLATED TEXT PLACEMENT
+==================================================
+
+After removing the original text, the translated text must be rendered in the SAME logical text region.
+
+Do not place translations randomly inside the bubble.
+
+For each text region maintain the stable ID:
+
+text_001
+text_002
+etc.
+
+The translation must reference the same region ID.
+
+Example:
+
+text_001
+originalText = Japanese text
+translation = Arabic translation
+textMask = original glyph mask
+textBounds = original text bounds
+bubbleBounds = detected bubble bounds
+
+The translated text should be:
+
+- centered relative to the original text region
+- constrained inside the speech bubble
+- automatically wrapped
+- scaled to fit
+- aligned according to reading direction
+- prevented from overflowing the bubble
+- visually balanced
+
+For Arabic:
+
+- use RTL text layout correctly
+- preserve Arabic shaping
+- center the Arabic translation inside the original text area
+- use an appropriate Arabic font
+- do not mirror unrelated UI/icons
+- do not change manga artwork direction
+
+For Japanese/Chinese/Korean vertical text:
+
+support appropriate vertical layout when the original text is vertical.
+
+==================================================
+PHASE 8 — SMART TEXT FITTING
+==================================================
+
+Implement a real text-fitting algorithm.
+
+The translated text should not simply use a fixed font size.
+
+Calculate available space using the detected text/bubble geometry.
+
+Then:
+
+1. Start with an appropriate font size.
+2. Wrap the translated text.
+3. Measure rendered bounds.
+4. Reduce font size if necessary.
+5. Recalculate line spacing.
+6. Keep text inside the bubble.
+7. Stop when the translation fits naturally.
+
+Avoid extremely tiny text.
+
+If the translation is too long, intelligently increase line count before drastically reducing font size.
+
+==================================================
+PHASE 9 — DO NOT ERASE NON-TEXT
+==================================================
+
+Add a safety validation step.
+
+Before inpainting, calculate:
+
+maskArea / textBoundingBoxArea
+
+If the mask covers an abnormally large percentage of the text region, flag it as suspicious.
+
+For example, if a detected text region is small but the mask covers almost the entire bubble, DO NOT process it blindly.
+
+Instead:
+
+- refine the mask again
+- use a safer fallback
+- or skip whiteout for that region and preserve the original image
+
+It is better to leave one piece of original text than to destroy the entire speech bubble.
+
+==================================================
+PHASE 10 — DEBUG VISUALIZATION
+==================================================
+
+Add a development-only debug mode that can visualize:
+
+1. Original image
+2. AI text bounding boxes
+3. AI text polygons
+4. Bubble bounds
+5. Final glyph mask
+6. Inpainting mask
+7. Inpainted image
+8. Final translated image
+
+Use different visual layers so it is immediately obvious whether the AI is detecting:
+
+TEXT vs BUBBLE.
+
+This is critical for debugging.
+
+The debug output must make it possible to answer:
+
+"Exactly which pixels are being removed?"
+
+==================================================
+PHASE 11 — TEST CASES
+==================================================
+
+Test with real manga/manhwa pages containing:
+
+1. Small dialogue text
+2. Large dialogue text
+3. Multiple bubbles
+4. Text close to bubble borders
+5. Text touching bubble borders
+6. Vertical Japanese text
+7. Horizontal text
+8. Narration boxes
+9. Colored text
+10. White text with outline
+11. Text over non-white backgrounds
+12. Stylized fonts
+13. Multiple text regions on the same page
+
+For every test verify:
+
+- only text is removed
+- bubble remains intact
+- artwork remains intact
+- translation appears in the correct location
+- translation stays inside the bubble
+- no large white rectangles appear
+- no bubble borders disappear
+- no unrelated artwork disappears
+
+==================================================
+PHASE 12 — PERFORMANCE AND ARCHITECTURE
+==================================================
+
+Do not send unnecessary duplicate images to Gemini.
+
+Keep the existing stable region-ID architecture.
+
+Do not break:
+
+- Gemini API configuration
+- current available Gemini model
+- translation
+- text detection
+- image loading
+- manga reader
+- Manga mode
+- Webtoon mode
+- scrolling
+- chapter navigation
+- settings
+- language/i18n
+- RTL UI
+- source switching
+- MangaFire verification
+- Asoura pagination
+
+Do not reintroduce the previous scrolling regression.
+
+Do not modify reader scrolling or image zoom unless absolutely required for this task.
+
+==================================================
+IMPORTANT IMPLEMENTATION RULES
+==================================================
+
+DO NOT:
+
+- erase entire speech bubbles
+- use bubble polygons as erase masks
+- use huge bounding boxes
+- simply paint regions white
+- use arbitrary fixed coordinates
+- fake successful detection
+- hide detection errors
+- remove the current translation pipeline
+- create a second competing translation pipeline
+- change reader scrolling to hide the problem
+- change unrelated UI
+
+DO:
+
+- inspect the existing implementation first
+- identify the exact reason the current mask is too large
+- improve the existing pipeline
+- keep text detection, translation, whiteout and rendering synchronized by stable region IDs
+- make glyph-level masking the primary method
+- use conservative fallbacks
+- preserve original manga artwork
+- preserve speech bubble borders
+- validate masks before destructive processing
+
+==================================================
+FINAL REQUIREMENT
+==================================================
+
+Before finishing, provide a technical report containing:
+
+1. Exact root cause of the current over-erasing.
+2. Which component/function was generating the oversized mask.
+3. Whether the problem was caused by Gemini detection, coordinate conversion, polygon generation, mask generation, dilation, or OpenCV inpainting.
+4. Exact files/components modified.
+5. New text-vs-bubble detection architecture.
+6. How the glyph mask is generated.
+7. How mask refinement works.
+8. How non-text areas are protected.
+9. How translated text is positioned inside the correct bubble.
+10. Tests performed and their results.
+11. Confirmation that existing translation, scrolling, chapter navigation, settings, i18n, Manga/Webtoon modes, and source functionality were preserved.
+
+Do not report the task as complete unless the actual implementation has been tested on real manga pages and the final mask is confirmed to remove text only.

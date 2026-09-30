@@ -194,6 +194,11 @@ function outputRegion(region: DetectedTextRegion, translated: string, options: T
     confidence: region.confidence,
     box_2d: region.box_2d,
     mask: region.mask,
+    glyphPolygons: region.glyphPolygons,
+    bubble_bbox: region.bubble_bbox,
+    bubblePolygon: region.bubblePolygon,
+    bubbleType: region.bubbleType,
+    readingDirection: region.readingDirection,
     pixelBox: region.pixelBox,
     pixelMask: region.pixelMask,
     maskSource: region.maskSource,
@@ -293,7 +298,10 @@ router.post("/", async (req, res) => {
           for (let attempt = 1; attempt <= 3; attempt++) {
             const response = await client.models.generateContent({
               model,
-              contents: [{ role: "user", parts: [{ inlineData: { mimeType: finalMime as "image/jpeg" | "image/png" | "image/webp", data: finalData } }, { text: prompt }] }],
+              // Detection already consumed the image. Translation receives
+              // only the stable IDs and source strings, avoiding a duplicate
+              // page upload and preventing it from changing detected geometry.
+              contents: [{ role: "user", parts: [{ text: prompt }] }],
               config: { maxOutputTokens: 8192, responseMimeType: "application/json" },
             });
             const parsed = parseJsonObject(response.text?.trim() ?? "");
